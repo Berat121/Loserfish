@@ -1,0 +1,26 @@
+# Build output
+**/*.o
+**/*.s
+src/.depend
+src/temp_builds
+.build_sha.txt
+.build_date.txt
+.build_diffindex.txt
+src/loserfish*
+src/stockfish*
+src/-lstdc++.res
+tests/lose_selftest
+tests/lose_selftest.exe
+
+# Profile data
+*.profdata
+*.profraw
+*.gcda
+
+# Python
+__pycache__/
+
+
+build/
+bin/
+PGOBENCH.out
