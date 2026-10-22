@@ -19,7 +19,8 @@ Details and status: `LOSERFISH.md`.
 
 ```
 cd src
-make -j build ARCH=x86-64 COMP=gcc      # produces src/loserfish (g++ 13, C++17)
+make -j build ARCH=x86-64 COMP=gcc      # produces src/loserfish (C++17)
+# ARCH depends on your CPU: x86-64, x86-64-avx2, armv8, apple-silicon, ... ("make help" lists them)
 ```
 CMake (no `sh` needed, GCC/Clang only):
 ```
@@ -40,8 +41,8 @@ MSVC is not supported. NNUE and nets were removed; no downloads needed.
 
 ## Speed
 
-`make profile-build ARCH=x86-64 COMP=gcc` (PGO, uses `bench`, default depth 8) gave about 23% more nps
-than the plain build in one comparison (3.13 to 3.85 Mnps, same node counts).
+`make profile-build ARCH=<your arch> COMP=gcc` (PGO, uses `bench`, default depth 8) gave about 23% more nps
+than the plain build in one x86-64 comparison (3.13 to 3.85 Mnps, same node counts).
 `tests/build_variants.sh` builds ARCH variants plus PGO; `tests/bench.py` compares binaries and measures
 Lazy SMP scaling (time to fixed depth). SMP scaling has not been measured on a multi-core machine yet.
 

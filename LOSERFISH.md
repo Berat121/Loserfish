@@ -108,7 +108,8 @@ mated. It is cheap on purpose (several million nodes per second per thread).
 
 ## 9. Build
 
-Linux and macOS: in src, run make -j build ARCH=x86-64 COMP=gcc (g++ 13 tested, C++17).
+Linux and macOS: in src, run make -j build ARCH=<arch> COMP=gcc (x86-64 on most PCs; make help lists the
+others, e.g. armv8 and apple-silicon). Tested with g++ 13 on x86-64, C++17.
 
 CMake (no POSIX shell needed, GCC or Clang): cmake -S . -B build -DCMAKE_BUILD_TYPE=Release, then
 cmake --build build. Verified on Linux only. Windows (MinGW) and 32-bit builds are unverified.

@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Build
+      - name: Build (Makefile)
         working-directory: src
         run: make -j2 build ARCH=x86-64 COMP=gcc
       - name: CMake build and perft
@@ -13,21 +13,17 @@ jobs:
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j2
           tests/perft.sh build/loserfish
-      - name: Perft
+      - name: Perft (Makefile build)
         run: tests/perft.sh src/loserfish
-      - name: Selftest (optimized search equals plain minimax)
-        working-directory: src
+      - name: Selftest (optimized search equals plain minimax, stalemate and mate rules)
         run: |
-          g++ -std=c++17 -O2 -DNDEBUG -DIS_64BIT -msse -DUSE_SSE2 -msse2 -DARCH=x86-64 -pthread \
-            -o ../tests/lose_selftest ../tests/lose_selftest.cpp attacks.cpp benchmark.cpp bitboard.cpp \
-            evaluate.cpp misc.cpp movegen.cpp movepick.cpp position.cpp search.cpp thread.cpp timeman.cpp \
-            tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp engine.cpp score.cpp memory.cpp \
-            losesearch.cpp misere.cpp
-          MIS_DBG=12 ../tests/lose_selftest 3 < ../tests/lose_fens.txt
-          MIS_DBG=12 ../tests/lose_selftest 4 < ../tests/lose_fens.txt
-          EXPECT_ZERO=1 MIS_DBG=12 ../tests/lose_selftest 0 < ../tests/lose_stalemate_fens.txt
-          for d in 1 2 3; do MIS_DBG=12 ../tests/lose_selftest $d < ../tests/lose_stalemate_parent_fens.txt; done
-          EXPECT_VALUE=-29999 MIS_PLYCAP=1 MIS_DBG=12 ../tests/lose_selftest 3 < ../tests/lose_allmate_fens.txt
+          cmake --build build --target lose_selftest -j2
+          export MIS_DBG=12
+          build/lose_selftest 3 < tests/lose_fens.txt
+          build/lose_selftest 4 < tests/lose_fens.txt
+          EXPECT_ZERO=1 build/lose_selftest 0 < tests/lose_stalemate_fens.txt
+          for d in 1 2 3; do build/lose_selftest $d < tests/lose_stalemate_parent_fens.txt; done
+          EXPECT_VALUE=-29999 MIS_PLYCAP=1 build/lose_selftest 3 < tests/lose_allmate_fens.txt
       - name: Smoke games (engine must never win, no illegal moves)
         run: |
           pip install chess

@@ -17,6 +17,7 @@
 */
 
 #include "misere.h"
+#include "misc.h"
 
 #include <algorithm>
 #include <array>
@@ -119,7 +120,7 @@ class Table {
         generation = 0;
     }
 
-    void prefetch(u64 key) const { __builtin_prefetch(&slots[key & mask]); }
+    void prefetch(u64 key) const { Stockfish::prefetch(&slots[key & mask]); }
 
     void new_search() { generation = (generation + 1) & 63; }
 

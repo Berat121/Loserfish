@@ -5,7 +5,7 @@ Measures wall time to reach a fixed depth, so it captures both raw speed and Laz
 Run it on a quiet machine (close other programs); the best of --repeats runs is used.
 
   python3 tests/bench.py src/loserfish                       # threads 1..cores, depth 10
-  python3 tests/bench.py bin/lf-base bin/lf-bmi2 --threads 1  # compare builds (ARCH, PGO)
+  python3 tests/bench.py bin/lf-a bin/lf-b --threads 1        # compare builds (ARCH, PGO)
   python3 tests/bench.py src/loserfish --threads 1,2,4,8 --depth 11 --json out.json
 
 Columns: nodes and nps are totals over all positions, time is the sum of per-position best times,
