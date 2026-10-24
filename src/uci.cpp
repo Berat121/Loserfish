@@ -42,6 +42,38 @@
 #include "types.h"
 #include "ucioption.h"
 
+#ifdef __EMSCRIPTEN__
+    // Browser build: commands arrive through loserfish_cmd() (called from JavaScript)
+    // instead of stdin, which cannot block the engine thread there.
+    #include <condition_variable>
+    #include <deque>
+    #include <mutex>
+
+    #include <emscripten.h>
+
+namespace {
+std::mutex              wasmMutex;
+std::condition_variable wasmCv;
+std::deque<std::string> wasmQueue;
+
+bool wasm_read_command(std::string& cmd) {
+    std::unique_lock<std::mutex> lk(wasmMutex);
+    wasmCv.wait(lk, [] { return !wasmQueue.empty(); });
+    cmd = std::move(wasmQueue.front());
+    wasmQueue.pop_front();
+    return true;
+}
+}  // namespace
+
+extern "C" EMSCRIPTEN_KEEPALIVE void loserfish_cmd(const char* line) {
+    {
+        std::lock_guard<std::mutex> lk(wasmMutex);
+        wasmQueue.emplace_back(line ? line : "");
+    }
+    wasmCv.notify_one();
+}
+#endif
+
 namespace Stockfish {
 
 using Time = std::chrono::steady_clock;
@@ -99,9 +131,14 @@ void UCIEngine::loop() {
 
     do
     {
+#ifdef __EMSCRIPTEN__
+        if (cli.argc == 1 && !wasm_read_command(cmd))
+            cmd = "quit";
+#else
         if (cli.argc == 1
             && !getline(std::cin, cmd))  // Wait for an input or an end-of-file (EOF) indication
             cmd = "quit";
+#endif
 
         currentCmd = cmd;
         std::istringstream is(cmd);

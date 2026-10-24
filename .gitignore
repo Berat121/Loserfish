@@ -24,3 +24,6 @@ __pycache__/
 build/
 bin/
 PGOBENCH.out
+
+build-wasm/
+build-wasm-web/

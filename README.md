@@ -58,6 +58,14 @@ It cannot force a loss against an opponent who refuses to mate, except through z
 two adversarial Loserfish engines draw by repetition. Evaluation is simple and untuned. Ponder, infinite,
 searchmoves, Chess960 and 32-bit builds are untested. Multi-thread speedup has not been measured yet; thread safety was checked with ThreadSanitizer.
 
+## WebAssembly
+
+`scripts/build_wasm.sh web|node [outdir]` builds the engine with Emscripten (about 520 KB `.wasm`, no network
+file needed). Send UCI lines with `Module.ccall('loserfish_cmd', null, ['string'], ['go depth 8'])` and read the
+engine output through the `print` callback. The engine runs on a pthread, so browsers need cross-origin isolation
+(COOP/COEP) for SharedArrayBuffer. `node tests/wasm_smoke.cjs build-wasm/loserfish.js` checks the Node build
+(depth 8 gives the same 810072 nodes as the native binary).
+
 ## License
 
 GNU GPL v3 (`Copying.txt`). Derived from Stockfish; see `AUTHORS` for the Stockfish developers.
