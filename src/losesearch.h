@@ -45,6 +45,7 @@ struct Params {
     int  threads     = 1;      // adversarial mode: Lazy SMP search threads
     Misere::Report report = Misere::Report::Neutral;  // how scores are shown in info lines
     bool cooperative = false;  // false: worst-case (misere) opponent, true: opponent mates us if it can
+    TimePoint moveOverhead = 30;  // ms reserved per move for GUI and I/O latency
 };
 
 // Chooses a move for the engine, whose goal is to lose (get checkmated) and never to win.

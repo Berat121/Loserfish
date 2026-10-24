@@ -316,7 +316,8 @@ static Result choose_cooperative(Position&                 pos,
                                  int                       safetyDepth,
                                  int                       mateDepth,
                                  Misere::Report            report,
-                                 const std::atomic_bool*   ponder) {
+                                 const std::atomic_bool*   ponder,
+                                 TimePoint                 moveOverhead) {
 
     Result res;
     if (rootMoves.empty())
@@ -334,21 +335,15 @@ static Result choose_cooperative(Position&                 pos,
     Ctx c(pos, us, stop);
     c.nodeLimit = limits.nodes;
 
-    TimePoint budget = 0;
-    if (limits.movetime)
-        budget = limits.movetime;
-    else if (limits.use_time_management() && limits.time[us])
-    {
-        budget = limits.time[us] / 30 + limits.inc[us] / 2;
-        budget = std::min<TimePoint>(budget, limits.time[us] * 8 / 10);
-    }
+    const Misere::TimePlan plan   = Misere::plan_time(limits, us, moveOverhead);
+    const TimePoint        budget = limits.movetime ? plan.hard : plan.base;
     if (limits.ponderMode && !limits.infinite && ponder && ponder->load())
     {
         c.ponderFlag   = ponder;
-        c.ponderBudget = budget ? std::max<TimePoint>(budget - 30, 5) : 0;
+        c.ponderBudget = budget;
     }
     else if (budget && !limits.infinite)
-        c.deadline = t0 + std::max<TimePoint>(budget - 30, 5);
+        c.deadline = t0 + budget;
 
     auto elapsed = [&]() { return std::max<TimePoint>(now() - t0, 1); };
 
@@ -518,13 +513,15 @@ Result choose(Position&                 pos,
 
     if (params.cooperative)
         return choose_cooperative(pos, rootMoves, limits, stop, params.safetyDepth,
-                                  params.mateDepth, params.report, params.ponder);
+                                  params.mateDepth, params.report, params.ponder,
+                                  params.moveOverhead);
 
     Misere::Config cfg;
     cfg.hashMB  = params.hashMB;
     cfg.threads = params.threads;
     cfg.ponder  = params.ponder;
     cfg.report  = params.report;
+    cfg.moveOverhead = params.moveOverhead;
     const Misere::Result r = Misere::search(pos, rootMoves, limits, stop, cfg);
 
     Result res;

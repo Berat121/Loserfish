@@ -38,6 +38,7 @@ MSVC is not supported. NNUE and nets were removed; no downloads needed.
 | LoseScore | neutral | score shown to GUIs: `neutral` (always cp 0), `natural`, `inverted`. Neutral avoids GUI resign adjudication |
 | LoseSafetyDepth / LoseMateDepth | 6 / 8 | cooperative mode only |
 | Threads, Hash | 1, 16 | Lazy SMP threads and table size |
+| Move Overhead | 30 | ms taken off movetime and off the clock for GUI latency; `movestogo` is honored (budget = time / movestogo) |
 
 ## Speed
 

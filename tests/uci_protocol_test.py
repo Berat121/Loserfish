@@ -91,4 +91,23 @@ for fen in ["bnrkqnbr/pppppppp/8/8/8/8/PPPPPPPP/BNRKQNBR w HChc - 0 1", "qrnbbnk
         else: check("chess960 line legal", True)
     e.close()
 
+# Time management: Move Overhead is taken off movetime and the clock, movestogo shortens the budget.
+def timed(opp, overhead, go):
+    e = Eng()
+    e.send(f"setoption name LoseOpponent value {opp}")
+    e.send(f"setoption name Move Overhead value {overhead}")
+    e.send("isready"); e.wait("readyok", 10)
+    e.send("position startpos moves e2e4 e7e5")
+    t = time.time(); e.send(go)
+    r = e.wait("bestmove", 15); dt = (time.time() - t) * 1000
+    e.close()
+    return r is not None, dt
+for opp in ("adversarial", "cooperative"):
+    ok, dt = timed(opp, 400, "go movetime 1000")
+    check(f"{opp} movetime honors Move Overhead", ok and dt <= 750, f"took {dt:.0f} ms")
+    ok, dt = timed(opp, 30, "go wtime 3000 btime 3000 movestogo 1")
+    check(f"{opp} movestogo 1 stays inside the clock", ok and dt <= 2970, f"took {dt:.0f} ms")
+    ok, dt = timed(opp, 2900, "go wtime 3000 btime 3000")
+    check(f"{opp} huge overhead leaves time", ok and dt <= 200, f"took {dt:.0f} ms")
+
 print("FAILED" if fails else "ALL OK"); sys.exit(1 if fails else 0)

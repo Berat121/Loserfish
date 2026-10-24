@@ -226,6 +226,7 @@ void Search::Worker::start_searching() {
         params.mateDepth   = int(options["LoseMateDepth"]);
         params.hashMB      = int(options["Hash"]);
         params.threads     = int(options["Threads"]);
+        params.moveOverhead = TimePoint(options["Move Overhead"]);
         params.ponder      = &main_manager()->ponder;
         {
             const std::string rep = options["LoseScore"];

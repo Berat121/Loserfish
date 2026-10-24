@@ -57,7 +57,20 @@ struct Config {
     int    hashMB  = 16;
     int    threads = 1;
     Report report  = Report::Neutral;
+    TimePoint moveOverhead = 30;  // ms reserved per move for GUI and I/O latency
 };
+
+// Time plan for one move, all in ms. All zero when there is no clock to manage.
+//   base: nominal budget for the move; hard: absolute cut-off for the search.
+struct TimePlan {
+    TimePoint base = 0;
+    TimePoint hard = 0;
+};
+
+// movetime: hard = movetime - overhead. Clock: the overhead is taken off the clock first,
+// then base = avail / movestogo (30 when unknown, at most 50) + inc / 2, and
+// hard = min(3 * base, 80% of avail).
+TimePlan plan_time(const Search::LimitsType& limits, Color us, TimePoint moveOverhead);
 
 Result search(Position&                 pos,
               const std::vector<Move>&  rootMoves,
