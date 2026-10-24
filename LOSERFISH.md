@@ -103,7 +103,7 @@ mated. It is cheap on purpose (several million nodes per second per thread).
 - LoseSafetyDepth (spin 1 to 12, default 6, cooperative mode)
 - LoseMateDepth (spin 2 to 16, default 8, cooperative mode)
 - LoseScore (string: neutral, natural or inverted, default neutral)
-- Move Overhead (spin 0 to 5000, default 30): reserved per move. Time plan (Misere::plan_time): movetime - overhead; with a clock, avail = time - overhead, base = avail / movestogo (30 if absent, at most 50) + inc / 2, hard = min(3 * base, 80% of avail).
+- Move Overhead (spin 0 to 5000, default 30): reserved per move. Time plan (Misere::plan_time): movetime - overhead; with a clock, avail = time - overhead, base = avail / movestogo (30 if absent, at most 50) + inc / 2, hard = min(2 * base, 80% of avail). base shrinks when we are behind on the clock (Stockfish's timeAdvantage). Adversarial search only: after each completed iteration the soft stop is elapsed * 2 > base * f, f = 1.3 / 1.0 / 0.7 / 0.45 for 0 / 1 / 2 / 3+ consecutive iterations with the same best move.
 - Threads (existing) sets the number of search threads of the adversarial search.
 - Hash (existing) sizes the table of the adversarial search.
 
