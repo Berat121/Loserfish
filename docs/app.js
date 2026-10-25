@@ -1,8 +1,7 @@
 import { Chess } from './vendor/chess.js';
 
 const $ = (id) => document.getElementById(id);
-const GLYPH = { k: '\u265A', q: '\u265B', r: '\u265C', b: '\u265D', n: '\u265E', p: '\u265F' };
-const TEXT_PRESENTATION = '\uFE0E';
+const pieceClass = (color, type) => 'p ' + color + type.toUpperCase();
 const FILES = 'abcdefgh';
 const SETUP_TIMEOUT_MS = 30000;
 
@@ -170,7 +169,9 @@ function askPromotion(from, to) {
   for (const t of ['q', 'r', 'b', 'n']) {
     const b = document.createElement('button');
     b.type = 'button';
-    b.textContent = GLYPH[t] + TEXT_PRESENTATION;
+    const img = document.createElement('span');
+    img.className = pieceClass(human, t);
+    b.appendChild(img);
     b.addEventListener('click', (ev) => {
       ev.stopPropagation();
       $('promo').hidden = true;
@@ -240,8 +241,7 @@ function render() {
       const piece = grid[row][col];
       if (piece) {
         const s = document.createElement('span');
-        s.className = 'p ' + piece.color;
-        s.textContent = GLYPH[piece.type] + TEXT_PRESENTATION;
+        s.className = pieceClass(piece.color, piece.type);
         el.appendChild(s);
       }
       if (c === 0) { const n = document.createElement('span'); n.className = 'co r'; n.textContent = String(8 - row); el.appendChild(n); }
