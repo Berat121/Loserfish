@@ -58,6 +58,7 @@ struct Config {
     int    threads = 1;
     Report report  = Report::Neutral;
     TimePoint moveOverhead = 30;  // ms reserved per move for GUI and I/O latency
+    int       extCap       = 3;   // free check evasions allowed per path (selective search), see Searcher::extCap
 };
 
 // Time plan for one move, all in ms. All zero when there is no clock to manage.

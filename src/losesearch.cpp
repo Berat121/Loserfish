@@ -522,6 +522,7 @@ Result choose(Position&                 pos,
     cfg.ponder  = params.ponder;
     cfg.report  = params.report;
     cfg.moveOverhead = params.moveOverhead;
+    cfg.extCap       = params.extCap;
     const Misere::Result r = Misere::search(pos, rootMoves, limits, stop, cfg);
 
     Result res;

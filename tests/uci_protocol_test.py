@@ -123,4 +123,18 @@ for thr in (1, 4):
     check(f"go nodes 200000 bounds total nodes threads={thr}", bm is not None and bool(infos) and max(infos) <= 220000, f"max {max(infos) if infos else None}")
     e.close()
 
+# LoseExtCap bounds free check evasions per path: the check-heavy tree must shrink clearly (depth 7: 5.6M -> 2.9M nodes at cap 3)
+def nodes_at(cap, depth=7):
+    e = Eng(); e.send("setoption name Threads value 1"); e.send(f"setoption name LoseExtCap value {cap}")
+    e.send("position fen r5nr/p1p5/1p1k2B1/1Q1p1K2/4P3/3P2q1/PP1P4/RNB5 b - - 0 25"); e.send(f"go depth {depth}")
+    n, end = None, time.time() + 60
+    while time.time() < end:
+        try: line = e.q.get(timeout=0.2)
+        except queue.Empty: continue
+        if line.startswith(f"info depth {depth} "): n = int(line.split(" nodes ")[1].split()[0])
+        if line.startswith("bestmove"): break
+    e.close(); return n
+n3, n99 = nodes_at(3), nodes_at(99)
+check("LoseExtCap 3 shrinks the check-heavy tree", n3 is not None and n99 is not None and n3 < 0.7 * n99, f"cap3 {n3} vs cap99 {n99}")
+
 print("FAILED" if fails else "ALL OK"); sys.exit(1 if fails else 0)

@@ -125,6 +125,8 @@ Engine::Engine(std::optional<std::filesystem::path> path) :
 
     options.add("LoseMateDepth", Option(8, 2, 16));
 
+    options.add("LoseExtCap", Option(3, 0, 99));
+
     options.add(  //
       "SyzygyPath", Option("", [](const Option& o) {
           Tablebases::init(o);

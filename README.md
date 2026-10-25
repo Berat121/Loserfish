@@ -36,6 +36,7 @@ MSVC is not supported. NNUE and nets were removed; no downloads needed.
 | LoseMode | true | false falls back to the plain Stockfish search (material eval only) |
 | LoseOpponent | adversarial | `adversarial` or `cooperative` |
 | LoseScore | neutral | score shown to GUIs: `neutral` (always cp 0), `natural`, `inverted`. Neutral avoids GUI resign adjudication |
+| LoseExtCap | 3 | adversarial search only: free check evasions allowed per path (0-99). Mutual checks otherwise never consume depth; 99 disables the cap |
 | LoseSafetyDepth / LoseMateDepth | 6 / 8 | cooperative mode only |
 | Threads, Hash | 1, 16 | Lazy SMP threads and table size |
 | Move Overhead | 30 | ms taken off movetime and off the clock for GUI latency; `movestogo` is honored (budget = time / movestogo) |

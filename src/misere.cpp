@@ -294,6 +294,8 @@ class Searcher {
     History&                hist;
     bool                    exact;
     int                     plyCap = MaxPly;  // test only (MIS_PLYCAP): lowers the recursion bound
+    int                     extCap = 99;      // selective search only: free check evasions allowed on one path
+    int                     extN[MaxPly + 2] = {};  // free evasions used so far on the current path
     int                     dbg = 0;  // test only: 1 = no TT cutoffs, 2 = no mate distance pruning, 8 = ignore repetitions
 
     StateInfo states[MaxPly + 2];
@@ -579,7 +581,11 @@ int Searcher::search(int ply, int depth, int alpha, int beta, bool pvNode) {
         const bool givesCheck = pos.gives_check(m);
         ++moveCount;
 
-        const int newDepth = depth - 1 + (inCheck ? 1 : 0);
+        // A check evasion keeps the depth. Mutual checks then never consume depth, so the selective
+        // search caps the number of free evasions per path (exact mode keeps the plain rule).
+        const bool freeEvasion = inCheck && (exact || depth <= 0 || extN[ply] < extCap);
+        const int  newDepth    = depth - 1 + (freeEvasion ? 1 : 0);
+        extN[ply + 1]          = extN[ply] + (freeEvasion && depth > 0 ? 1 : 0);
 
         curMove[ply] = m;
         pos.do_move(m, states[ply], givesCheck, nullptr, nullptr);
@@ -668,6 +674,7 @@ int Searcher::root(std::vector<RootEntry>& rms, int depth, std::vector<Move>& pv
         const int  newDepth   = depth - 1 + (inCheck ? 1 : 0);
 
         curMove[0] = m;
+        extN[1]    = inCheck ? 1 : 0;
         pos.do_move(m, states[0], givesCheck, nullptr, nullptr);
         int score;
         if (i == 0)
@@ -825,6 +832,7 @@ Result search(Position&                 pos,
 
     Searcher s(pos, stop, gTable, hist_for(0), false);
     s.nodeLimit = limits.nodes;
+    s.extCap    = std::clamp(cfg.extCap, 0, 99);
 
     TimePoint soft = 0, hard = 0;
     if (!limits.infinite)
@@ -857,6 +865,7 @@ Result search(Position&                 pos,
         helpers.push_back(
           std::make_unique<Helper>(pos, *pos.state(), std::size_t(i), pos.is_chess960()));
         Helper* h  = helpers.back().get();
+        h->s.extCap = std::clamp(cfg.extCap, 0, 99);
         h->th      = std::thread(helper_loop, h, i, rms, maxDepth);
     }
     auto totalNodes = [&]() {

@@ -46,6 +46,7 @@ struct Params {
     Misere::Report report = Misere::Report::Neutral;  // how scores are shown in info lines
     bool cooperative = false;  // false: worst-case (misere) opponent, true: opponent mates us if it can
     TimePoint moveOverhead = 30;  // ms reserved per move for GUI and I/O latency
+    int       extCap       = 3;   // LoseExtCap: free check evasions per path in the adversarial search
 };
 
 // Chooses a move for the engine, whose goal is to lose (get checkmated) and never to win.
