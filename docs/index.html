@@ -134,9 +134,15 @@ footer a { color: inherit; }
     <a href="vendor/coi-serviceworker.LICENSE">coi-serviceworker</a> (MIT).
   </footer>
 </main>
-<script>window.coi = { coepCredentialless: function () { return false; } };</script>
+<script>
+window.coi = {
+  coepCredentialless: function () { return false; },
+  // coi-serviceworker can call doReload twice (updatefound and active-but-uncontrolled); the second reload aborts the first navigation.
+  doReload: (function () { var done = false; return function () { if (done) return; done = true; window.location.reload(); }; })()
+};
+</script>
 <script src="coi-serviceworker.js"></script>
 <script src="loserfish.js"></script>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>

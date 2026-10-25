@@ -619,15 +619,6 @@ function showIsolationBanner() {
   btn.textContent = 'Reload';
   btn.addEventListener('click', () => globalThis.location.reload());
   b.appendChild(btn);
-  if (sw) {
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      try {
-        if (globalThis.crossOriginIsolated || sessionStorage.getItem('coi-reloaded')) return;
-        sessionStorage.setItem('coi-reloaded', '1');
-      } catch (e) { return; }
-      globalThis.location.reload();
-    });
-  }
 }
 
 async function main() {
