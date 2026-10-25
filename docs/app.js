@@ -601,6 +601,35 @@ function readLimit() {
   limit = { kind: v[0] === 't' ? 'time' : 'depth', value: Number(v.slice(1)) };
 }
 
+function showIsolationBanner() {
+  const sw = 'serviceWorker' in navigator;
+  const secure = !!globalThis.isSecureContext;
+  const controlled = sw && !!navigator.serviceWorker.controller;
+  let why;
+  if (!secure) why = 'This page is not in a secure context. Open the https:// address.';
+  else if (!sw) why = 'Service workers are unavailable here (private window, blocked site data, or an old browser). Open the page in a normal window.';
+  else if (!controlled) why = 'The service worker is not controlling this page yet. Reload normally (F5). Ctrl+Shift+R bypasses service workers and cannot work.';
+  else why = 'The service worker controls the page but isolation is still off. Reload normally; if it persists, clear this site\u2019s data and reload.';
+  const b = $('banner');
+  b.hidden = false;
+  b.textContent = 'The engine needs cross-origin isolation (SharedArrayBuffer). ' + why +
+    ' [secure=' + secure + ', serviceWorker=' + sw + ', controlled=' + controlled + '] ';
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = 'Reload';
+  btn.addEventListener('click', () => globalThis.location.reload());
+  b.appendChild(btn);
+  if (sw) {
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      try {
+        if (globalThis.crossOriginIsolated || sessionStorage.getItem('coi-reloaded')) return;
+        sessionStorage.setItem('coi-reloaded', '1');
+      } catch (e) { return; }
+      globalThis.location.reload();
+    });
+  }
+}
+
 async function main() {
   $('new').addEventListener('click', resetGame);
   $('undo').addEventListener('click', undoMove);
@@ -624,10 +653,7 @@ async function main() {
   rebuildPieces();
   render();
   if (!globalThis.crossOriginIsolated) {
-    const b = $('banner');
-    b.hidden = false;
-    b.textContent = 'The engine needs cross-origin isolation (SharedArrayBuffer). The page reloads once to enable it. ' +
-      'If this message stays, service workers are blocked in this browser (private mode?).';
+    showIsolationBanner();
     return;
   }
   try {

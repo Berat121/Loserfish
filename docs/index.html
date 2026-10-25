@@ -24,6 +24,7 @@ header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margi
 h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.01em; }
 .sub { color: var(--muted); font-size: .92rem; }
 #banner { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 8px; background: rgba(224, 165, 38, .12); }
+#banner button { margin-left: 8px; padding: 3px 10px; }
 #banner[hidden], #promo[hidden], #now[hidden] { display: none; }
 .app { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
 .stage { display: flex; gap: 8px; }
@@ -136,6 +137,6 @@ footer a { color: inherit; }
 <script>window.coi = { coepCredentialless: function () { return false; } };</script>
 <script src="coi-serviceworker.js"></script>
 <script src="loserfish.js"></script>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>
