@@ -3,99 +3,132 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark light">
 <title>Loserfish: an engine that wants to be checkmated</title>
+<link rel="modulepreload" href="vendor/chess.js">
 <style>
 :root {
-  --bs: min(94vw, 560px);
+  --bs: min(calc(100vw - 64px), 84vh, 620px);
+  --bg: #161512; --card: #262421; --card2: #2e2c29; --line: #3a3835; --fg: #e8e6e1; --muted: #a09d96;
+  --accent: #6fa83a; --accent-fg: #0f1a06; --warn: #e0a526;
   --light: #f0d9b5; --dark: #b58863;
-  --bg: #f4f4f2; --fg: #1d1d1b; --muted: #666; --card: #fff; --line: #d8d8d4;
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bg: #1b1b1a; --fg: #ececea; --muted: #a0a09a; --card: #262625; --line: #3a3a38; }
+@media (prefers-color-scheme: light) {
+  :root { --bg: #ecebe8; --card: #fff; --card2: #f4f3f0; --line: #d9d7d2; --fg: #1f1e1c; --muted: #6a6862; --accent: #4f8a1e; --accent-fg: #fff; }
 }
 * { box-sizing: border-box; }
-body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; }
-main { max-width: 960px; margin: 0 auto; padding: 16px; }
-h1 { margin: 0 0 4px; font-size: 1.6rem; }
-.sub { margin: 0 0 12px; color: var(--muted); }
-#banner { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #c9a227; background: #fff6d6; color: #4a3b00; border-radius: 6px; }
-.layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
-#board { position: relative; width: var(--bs); height: var(--bs); display: grid;
-  grid-template: repeat(8, 1fr) / repeat(8, 1fr); user-select: none; touch-action: none;
-  border-radius: 4px; overflow: hidden; box-shadow: 0 2px 14px rgba(0, 0, 0, .35); }
-.sq { position: relative; display: flex; align-items: center; justify-content: center;
-  cursor: pointer; }
-.sq.l { background: var(--light); } .sq.d { background: var(--dark); }
-.sq.last::before, .sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(255, 235, 59, .5); }
-.sq.sel::before { background: rgba(255, 213, 0, .7); }
-.sq.chk { box-shadow: inset 0 0 0 calc(var(--bs) / 8 * .5) rgba(220, 40, 40, .55); }
-.sq.dest::after { content: ""; position: absolute; z-index: 2; pointer-events: none; width: 28%; height: 28%; border-radius: 50%; background: rgba(20, 85, 30, .5); }
-.sq.dest.cap::after { width: 92%; height: 92%; background: none; border: 5px solid rgba(20, 85, 30, .5); }
-.p { position: relative; z-index: 1; width: 100%; height: 100%; background: center / 94% no-repeat; pointer-events: none; }
-.p.wK { background-image: url(pieces/cburnett/wK.svg); }
-.p.wQ { background-image: url(pieces/cburnett/wQ.svg); }
-.p.wR { background-image: url(pieces/cburnett/wR.svg); }
-.p.wB { background-image: url(pieces/cburnett/wB.svg); }
-.p.wN { background-image: url(pieces/cburnett/wN.svg); }
-.p.wP { background-image: url(pieces/cburnett/wP.svg); }
-.p.bK { background-image: url(pieces/cburnett/bK.svg); }
-.p.bQ { background-image: url(pieces/cburnett/bQ.svg); }
-.p.bR { background-image: url(pieces/cburnett/bR.svg); }
-.p.bB { background-image: url(pieces/cburnett/bB.svg); }
-.p.bN { background-image: url(pieces/cburnett/bN.svg); }
-.p.bP { background-image: url(pieces/cburnett/bP.svg); }
-.co { position: absolute; z-index: 2; font: 600 11px/1 system-ui, sans-serif; pointer-events: none; opacity: .75; }
-.co.f { right: 3px; bottom: 2px; } .co.r { left: 3px; top: 3px; }
-.sq.l .co { color: var(--dark); } .sq.d .co { color: var(--light); }
-.sq:hover { filter: brightness(1.07); }
-.sq.over { box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .75); }
-.p.ghost { opacity: .3; }
-.p.dragging { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; }
-aside { flex: 1 1 260px; min-width: 240px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
-#status { font-weight: 600; }
-.hint { color: var(--muted); font-size: .85rem; display: block !important; }
-#info { color: var(--muted); font-size: .9rem; min-height: 1.3em; }
-.controls { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
-.controls .full { grid-column: 1 / -1; display: flex; gap: 8px; }
-select, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
-button { cursor: pointer; } button:hover { border-color: var(--muted); }
-#moves { margin: 0; padding-left: 0; list-style: none; max-height: 200px; overflow: auto; font-family: ui-monospace, monospace; font-size: .9rem; }
-#moves li { display: grid; grid-template-columns: 2.5em 1fr 1fr; }
-#promo { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 10; }
-#promo[hidden], #banner[hidden] { display: none; }
-#promo div { background: var(--card); padding: 12px; border-radius: 8px; display: flex; gap: 8px; }
-#promo button { width: 72px; height: 72px; padding: 0; }
-#promo button .p { pointer-events: none; }
-footer { margin-top: 8px; color: var(--muted); font-size: .85rem; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 14px 14px 28px; }
+header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 10px; }
+h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.01em; }
+.sub { color: var(--muted); font-size: .92rem; }
+#banner { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 8px; background: rgba(224, 165, 38, .12); }
+#banner[hidden], #promo[hidden], #now[hidden] { display: none; }
+.app { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
+.stage { display: flex; gap: 8px; }
+#evalbar { position: relative; width: 22px; height: var(--bs); border-radius: 6px; overflow: hidden; background: #2b2b2b; flex: none; transition: opacity .2s; }
+#evalbar.off { opacity: .25; }
+#evalfill { position: absolute; inset: 0; background: #f2f2f2; transform-origin: 50% 100%; transform: scaleY(.5); transition: transform .35s cubic-bezier(.2, .8, .2, 1); will-change: transform; }
+#evalbar.flip #evalfill { background: #2b2b2b; }
+#evalbar.flip { background: #f2f2f2; }
+#evaltext { position: absolute; left: 0; right: 0; text-align: center; font: 600 10px/1 system-ui, sans-serif; z-index: 1; pointer-events: none; }
+#board { position: relative; width: var(--bs); height: var(--bs); flex: none; border-radius: 6px; overflow: hidden; user-select: none; -webkit-user-select: none;
+  touch-action: none; contain: layout paint size; box-shadow: 0 6px 24px rgba(0, 0, 0, .45);
+  background: conic-gradient(var(--dark) 25%, var(--light) 0 50%, var(--dark) 0 75%, var(--light) 0) 0 0 / 25% 25%; }
+#board.noanim .p { transition: none !important; }
+#hl, #pieces, #coords { position: absolute; inset: 0; pointer-events: none; }
+#hl { z-index: 1; } #pieces { z-index: 2; } #coords { z-index: 3; }
+.hl { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; }
+.hl.sel { background: rgba(20, 85, 30, .5); }
+.hl.last { background: rgba(155, 199, 0, .41); }
+.hl.dest { background: radial-gradient(rgba(20, 85, 30, .5) 19%, rgba(0, 0, 0, 0) 20%); }
+.hl.dest.cap { background: radial-gradient(transparent 0%, transparent 79%, rgba(20, 85, 30, .3) 80%); }
+.hl.dest.over { background: rgba(20, 85, 30, .3); }
+.hl.chk { background: radial-gradient(ellipse at center, rgba(255, 0, 0, 1) 0%, rgba(231, 0, 0, 1) 25%, rgba(169, 0, 0, 0) 89%, rgba(158, 0, 0, 0) 100%); }
+.p { position: absolute; left: 0; top: 0; width: 12.5%; height: 12.5%; background-size: 100%; background-repeat: no-repeat;
+  will-change: transform; transition: transform .16s ease-out; }
+.p.dragging { transition: none; z-index: 10; }
+.p.ghost { opacity: .3; transition: none; }
+.co { position: absolute; font: 600 clamp(8px, calc(var(--bs) / 56), 12px)/1 system-ui, sans-serif; opacity: .9; }
+.co.l { color: var(--light); } .co.d { color: var(--dark); }
+aside { flex: 1 1 290px; min-width: 260px; display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+.pill { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); flex: none; }
+.dot.think { background: var(--warn); animation: pulse 1s ease-in-out infinite; }
+.dot.over { background: var(--muted); }
+@keyframes pulse { 50% { opacity: .35; transform: scale(.8); } }
+#info { color: var(--muted); font-size: .88rem; margin-top: 4px; min-height: 1.3em; font-variant-numeric: tabular-nums; }
+.grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 12px; align-items: center; }
+.grid label { color: var(--muted); font-size: .9rem; }
+.hint { grid-column: 1 / -1; color: var(--muted); font-size: .82rem; line-height: 1.4; margin-top: -2px; }
+select, button { font: inherit; color: var(--fg); background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
+select { width: 100%; }
+button { cursor: pointer; transition: background .12s, border-color .12s, transform .06s; }
+button:hover { border-color: var(--muted); } button:active { transform: translateY(1px); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
+.row { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
+.row button { flex: 1 1 auto; }
+#toast { color: var(--muted); font-size: .82rem; min-height: 1.1em; grid-column: 1 / -1; }
+#moves { margin: 0; padding: 0; list-style: none; max-height: 190px; overflow: auto; font: .88rem ui-monospace, SFMono-Regular, Menlo, monospace; }
+#moves li { display: grid; grid-template-columns: 2.6em 1fr 1fr; padding: 1px 0; }
+#moves li span:first-child { color: var(--muted); }
+#promo { position: fixed; inset: 0; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; z-index: 50; }
+#promo div { background: var(--card); padding: 12px; border-radius: 12px; display: flex; gap: 8px; }
+#promo button { width: 76px; height: 76px; padding: 0; position: relative; }
+#promo .pc { position: absolute; inset: 0; background-size: 100%; background-repeat: no-repeat; }
+footer { margin-top: 6px; color: var(--muted); font-size: .8rem; }
 footer a { color: inherit; }
+.wK { background-image: url(pieces/cburnett/wK.svg); }
+.wQ { background-image: url(pieces/cburnett/wQ.svg); }
+.wR { background-image: url(pieces/cburnett/wR.svg); }
+.wB { background-image: url(pieces/cburnett/wB.svg); }
+.wN { background-image: url(pieces/cburnett/wN.svg); }
+.wP { background-image: url(pieces/cburnett/wP.svg); }
+.bK { background-image: url(pieces/cburnett/bK.svg); }
+.bQ { background-image: url(pieces/cburnett/bQ.svg); }
+.bR { background-image: url(pieces/cburnett/bR.svg); }
+.bB { background-image: url(pieces/cburnett/bB.svg); }
+.bN { background-image: url(pieces/cburnett/bN.svg); }
+.bP { background-image: url(pieces/cburnett/bP.svg); }
 </style>
 </head>
 <body>
 <main>
-  <h1>Loserfish</h1>
-  <p class="sub">A Stockfish-derived engine that tries to get checkmated. Your challenge: do not mate it.</p>
+  <header><h1>Loserfish</h1><span class="sub">A Stockfish-derived engine that tries to get checkmated. Your challenge: do not mate it.</span></header>
   <div id="banner" hidden></div>
-  <div class="layout">
-    <div id="board" role="grid" aria-label="Chess board"></div>
+  <div class="app">
+    <div class="stage">
+      <div id="evalbar" class="off" title="Evaluation of the engine's last search"><div id="evalfill"></div><span id="evaltext"></span></div>
+      <div id="board" role="application" aria-label="Chess board"><div id="hl"></div><div id="pieces"></div><div id="coords"></div></div>
+    </div>
     <aside>
-      <div class="card"><div id="status">Loading engine...</div><div id="info"></div></div>
-      <div class="card controls">
+      <div class="card"><div class="pill"><span class="dot" id="dot"></span><span id="status">Loading engine...</span></div><div id="info"></div></div>
+      <div class="card grid">
         <label for="side">You play</label>
         <select id="side"><option value="white">White</option><option value="black">Black</option></select>
-        <label for="time">Think time</label>
-        <select id="time"><option value="300">0.3 s</option><option value="1000" selected>1 s</option><option value="3000">3 s</option></select>
+        <label for="limit">Think limit</label>
+        <select id="limit">
+          <option value="t300">0.3 s</option><option value="t1000" selected>1 s</option><option value="t3000">3 s</option>
+          <option value="d6">Depth 6</option><option value="d8">Depth 8</option><option value="d10">Depth 10 (slow)</option>
+        </select>
         <label for="mode">Opponent model</label>
         <select id="mode"><option value="adversarial">Adversarial</option><option value="cooperative">Cooperative</option></select>
-        <div class="hint full" id="modehint"></div>
-        <div class="full"><button id="new" type="button">New game</button><button id="undo" type="button">Undo</button></div>
+        <div class="hint" id="modehint"></div>
+        <label for="eval">Eval</label>
+        <select id="eval"><option value="inverted" selected>Inverted</option><option value="natural">Natural</option><option value="off">Off</option></select>
+        <div class="hint" id="evalhint"></div>
+        <div class="row"><button id="new" class="primary" type="button">New game</button><button id="undo" type="button">Undo</button><button id="now" type="button" hidden>Move now</button></div>
+        <div class="row"><button id="pgn" type="button">Export PGN</button><button id="copy" type="button">Copy PGN</button></div>
+        <div id="toast"></div>
       </div>
       <div class="card"><ol id="moves"></ol></div>
     </aside>
   </div>
   <div id="promo" hidden><div></div></div>
   <footer>
-    <a href="https://github.com/Berat121/Loserfish">Source on GitHub</a> (GPLv3). WebAssembly build of the engine runs in your browser.
+    <a href="https://github.com/Berat121/Loserfish">Source on GitHub</a> (GPLv3). The engine runs in your browser as WebAssembly.
     Pieces: <a href="pieces/cburnett/NOTICE.txt">cburnett</a> by Colin M.L. Burnett (GPLv2+). Uses <a href="vendor/chess.js.LICENSE">chess.js</a> (BSD-2) and
     <a href="vendor/coi-serviceworker.LICENSE">coi-serviceworker</a> (MIT).
   </footer>
@@ -103,6 +136,6 @@ footer a { color: inherit; }
 <script>window.coi = { coepCredentialless: function () { return false; } };</script>
 <script src="coi-serviceworker.js"></script>
 <script src="loserfish.js"></script>
-<script type="module" src="app.js?v=4"></script>
+<script type="module" src="app.js?v=5"></script>
 </body>
 </html>
