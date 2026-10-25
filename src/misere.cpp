@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <atomic>
+#include <functional>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -332,6 +333,8 @@ class Searcher {
     u64       nodes     = 0;
     std::atomic<u64> pubNodes{0};  // nodes, published every 1024 nodes for other threads
     u64       nodeLimit = 0;
+    // Main thread only: nodes published by the helper threads, so go nodes bounds the total.
+    std::function<u64()> helperNodes;
     TimePoint deadline  = 0;
     bool      aborted   = false;
     int       maxPly    = 0;
@@ -365,7 +368,7 @@ class Searcher {
             else if (deadline && now() >= deadline)
                 aborted = true;
         }
-        if (nodeLimit && nodes >= nodeLimit)
+        if (nodeLimit && (nodes >= nodeLimit || ((nodes & 1023) == 0 && helperNodes && nodes + helperNodes() >= nodeLimit)))
             aborted = true;
     }
 };
@@ -587,7 +590,8 @@ int Searcher::search(int ply, int depth, int alpha, int beta, bool pvNode) {
         else
         {
             int r = 0;
-            if (!exact && depth >= 3 && moveCount > 3 && !inCheck && !givesCheck && !capture)
+            if (!exact && depth >= 3 && moveCount > 3 && !inCheck && !givesCheck && !capture
+                && m.type_of() != PROMOTION)
                 r = 1 + (depth >= 6 && moveCount > 10);
 
             score = -search(ply + 1, newDepth - r, -alpha - 1, -alpha, false);
@@ -663,6 +667,7 @@ int Searcher::root(std::vector<RootEntry>& rms, int depth, std::vector<Move>& pv
         const bool givesCheck = pos.gives_check(m);
         const int  newDepth   = depth - 1 + (inCheck ? 1 : 0);
 
+        curMove[0] = m;
         pos.do_move(m, states[0], givesCheck, nullptr, nullptr);
         int score;
         if (i == 0)
@@ -860,6 +865,13 @@ Result search(Position&                 pos,
             n += h->s.pubNodes.load(std::memory_order_relaxed);
         return n;
     };
+    if (limits.nodes && !helpers.empty())
+        s.helperNodes = [&]() {
+            u64 n = 0;
+            for (const auto& h : helpers)
+                n += h->s.pubNodes.load(std::memory_order_relaxed);
+            return n;
+        };
 
     // Soft limit scaling: the longer the best move stays the same across completed
     // iterations, the earlier we stop; a fresh change earns a little extra time.
@@ -921,7 +933,9 @@ Result search(Position&                 pos,
         h->stopFlag.store(true, std::memory_order_relaxed);
     for (auto& h : helpers)
         h->th.join();
-    res.nodes = totalNodes();
+    res.nodes = s.nodes;
+    for (const auto& h : helpers)
+        res.nodes += h->s.nodes;  // threads are joined, so the plain counters are final
     return res;
 }
 

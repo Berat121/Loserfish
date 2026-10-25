@@ -110,4 +110,17 @@ for opp in ("adversarial", "cooperative"):
     ok, dt = timed(opp, 2900, "go wtime 3000 btime 3000")
     check(f"{opp} huge overhead leaves time", ok and dt <= 200, f"took {dt:.0f} ms")
 
+# go nodes bounds the total over all threads (helper threads used to run past the limit)
+for thr in (1, 4):
+    e = Eng(); e.send(f"setoption name Threads value {thr}")
+    e.send("position fen r5nr/p1p5/1p1k2B1/1Q1p1K2/4P3/3P2q1/PP1P4/RNB5 b - - 0 25"); e.send("go nodes 200000")
+    infos, bm, end = [], None, time.time() + 30
+    while time.time() < end:
+        try: line = e.q.get(timeout=0.2)
+        except queue.Empty: continue
+        if line.startswith("info depth"): infos.append(int(line.split(" nodes ")[1].split()[0]))
+        if line.startswith("bestmove"): bm = line; break
+    check(f"go nodes 200000 bounds total nodes threads={thr}", bm is not None and bool(infos) and max(infos) <= 220000, f"max {max(infos) if infos else None}")
+    e.close()
+
 print("FAILED" if fails else "ALL OK"); sys.exit(1 if fails else 0)
