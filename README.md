@@ -60,11 +60,15 @@ searchmoves, Chess960 and 32-bit builds are untested. Multi-thread speedup has n
 
 ## WebAssembly
 
-`scripts/build_wasm.sh web|node [outdir]` builds the engine with Emscripten (about 520 KB `.wasm`, no network
-file needed). Send UCI lines with `Module.ccall('loserfish_cmd', null, ['string'], ['go depth 8'])` and read the
-engine output through the `print` callback. The engine runs on a pthread, so browsers need cross-origin isolation
-(COOP/COEP) for SharedArrayBuffer. `node tests/wasm_smoke.cjs build-wasm/loserfish.js` checks the Node build
-(depth 8 gives the same 810072 nodes as the native binary).
+Prebuilt browser files (about 520 KB `.wasm`, Emscripten 4.0.9): [`docs/loserfish.js`](docs/loserfish.js) and
+[`docs/loserfish.wasm`](docs/loserfish.wasm). Load the script, create the engine with
+`const M = await Loserfish({print: line => ...})`, then send UCI lines with
+`M.ccall('loserfish_cmd', null, ['string'], ['go depth 8'])`. Engine output arrives in the `print` callback.
+
+- The engine runs on a pthread, so the page needs cross-origin isolation (COOP/COEP headers) for SharedArrayBuffer.
+- Rebuild with `scripts/build_wasm.sh web|node [outdir]` (Emscripten must be on PATH).
+- `node tests/wasm_smoke.cjs build-wasm/loserfish.js` checks the Node build: depth 8 gives the same 810072 nodes as
+  the native binary. The browser build is not tested in a browser yet.
 
 ## License
 
