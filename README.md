@@ -71,7 +71,7 @@ Prebuilt browser files (about 520 KB `.wasm`, Emscripten 4.0.9): [`docs/loserfis
 
 - The engine runs on a pthread, so the page needs cross-origin isolation (COOP/COEP headers) for SharedArrayBuffer.
 - Rebuild with `scripts/build_wasm.sh web|node [outdir]` (Emscripten must be on PATH).
-- `node tests/wasm_smoke.cjs build-wasm/loserfish.js` checks the Node build: depth 8 gives the same 810072 nodes as
+- `node tests/wasm_smoke.cjs build-wasm/loserfish.js` checks the Node build: depth 8 gives the same 612803 nodes as
   the native binary. The browser build is not tested in a browser yet.
 
 ## License
