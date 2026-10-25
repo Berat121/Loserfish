@@ -596,9 +596,55 @@ function render() {
   renderEval();
 }
 
-function readLimit() {
-  const v = $('limit').value;
-  limit = { kind: v[0] === 't' ? 'time' : 'depth', value: Number(v.slice(1)) };
+const LIMIT_KEY = 'loserfish-limit';
+const CUSTOM = {
+  time: { min: 0.1, max: 600, step: 0.1, def: 2, hint: 'Seconds per move (0.1 to 600). Move now ends the search early.' },
+  depth: { min: 1, max: 40, step: 1, def: 8, hint: 'Search depth in plies (1 to 40). Above 10 can take minutes in the browser; use Move now.' },
+};
+
+function saveLimit() {
+  try {
+    globalThis.localStorage.setItem(LIMIT_KEY, JSON.stringify({ sel: $('limit').value, kind: $('ckind').value, val: $('cval').value }));
+  } catch (e) { /* storage is optional */ }
+}
+
+function loadLimit() {
+  try {
+    const o = JSON.parse(globalThis.localStorage.getItem(LIMIT_KEY));
+    if (!o) return;
+    if ([...$('limit').options].some((x) => x.value === o.sel)) $('limit').value = o.sel;
+    if (o.kind === 'time' || o.kind === 'depth') { $('ckind').value = o.kind; applyCustomBounds(); }
+    if (Number.isFinite(Number(o.val))) $('cval').value = String(o.val);
+  } catch (e) { /* ignore unreadable storage */ }
+}
+
+function applyCustomBounds() {
+  const c = CUSTOM[$('ckind').value];
+  const v = $('cval');
+  v.min = String(c.min);
+  v.max = String(c.max);
+  v.step = String(c.step);
+  $('customhint').textContent = c.hint;
+}
+
+// Reads the limit controls. With fix=true an out-of-range custom value is clamped and written back to the field.
+function readLimit(fix) {
+  const sel = $('limit').value;
+  const custom = sel === 'custom';
+  $('customrow').hidden = !custom;
+  $('customhint').hidden = !custom;
+  if (custom) {
+    const kind = $('ckind').value;
+    const c = CUSTOM[kind];
+    let n = Number($('cval').value);
+    if (!Number.isFinite(n) || $('cval').value === '') n = c.def;
+    n = Math.min(c.max, Math.max(c.min, kind === 'depth' ? Math.round(n) : n));
+    if (fix) $('cval').value = String(kind === 'depth' ? n : Math.round(n * 10) / 10);
+    limit = kind === 'time' ? { kind: 'time', value: Math.round(n * 1000) } : { kind: 'depth', value: n };
+  } else {
+    limit = { kind: sel[0] === 't' ? 'time' : 'depth', value: Number(sel.slice(1)) };
+  }
+  saveLimit();
 }
 
 function showIsolationBanner() {
@@ -626,7 +672,14 @@ async function main() {
   $('undo').addEventListener('click', undoMove);
   $('side').addEventListener('change', resetGame);
   $('mode').addEventListener('change', () => { $('modehint').textContent = MODE_HINT[$('mode').value]; resetGame(); });
-  $('limit').addEventListener('change', readLimit);
+  $('limit').addEventListener('change', () => readLimit(true));
+  $('ckind').addEventListener('change', () => {
+    applyCustomBounds();
+    $('cval').value = String(CUSTOM[$('ckind').value].def);
+    readLimit(true);
+  });
+  $('cval').addEventListener('input', () => readLimit(false));
+  $('cval').addEventListener('change', () => readLimit(true));
   $('eval').addEventListener('change', applyScoreMode);
   $('now').addEventListener('click', () => { if (searchPromise) send('stop'); });
   $('pgn').addEventListener('click', exportPgn);
@@ -638,7 +691,9 @@ async function main() {
   document.addEventListener('pointercancel', onPointerCancel);
   human = $('side').value === 'white' ? 'w' : 'b';
   flip = human === 'b';
-  readLimit();
+  loadLimit();
+  applyCustomBounds();
+  readLimit(true);
   $('modehint').textContent = MODE_HINT[$('mode').value];
   renderCoords();
   rebuildPieces();

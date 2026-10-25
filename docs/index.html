@@ -25,7 +25,7 @@ h1 { margin: 0; font-size: 1.5rem; letter-spacing: -.01em; }
 .sub { color: var(--muted); font-size: .92rem; }
 #banner { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--warn); border-radius: 8px; background: rgba(224, 165, 38, .12); }
 #banner button { margin-left: 8px; padding: 3px 10px; }
-#banner[hidden], #promo[hidden], #now[hidden] { display: none; }
+#banner[hidden], #promo[hidden], #now[hidden], #customrow[hidden], #customhint[hidden] { display: none; }
 .app { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-start; }
 .stage { display: flex; gap: 8px; }
 #evalbar { position: relative; width: 22px; height: var(--bs); border-radius: 6px; overflow: hidden; background: #2b2b2b; flex: none; transition: opacity .2s; }
@@ -66,6 +66,8 @@ aside { flex: 1 1 290px; min-width: 260px; display: flex; flex-direction: column
 .hint { grid-column: 1 / -1; color: var(--muted); font-size: .82rem; line-height: 1.4; margin-top: -2px; }
 select, button { font: inherit; color: var(--fg); background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
 select { width: 100%; }
+input[type=number] { font: inherit; color: var(--fg); background: var(--card2); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; width: 6.5em; flex: none; }
+#customrow select { flex: 1 1 auto; }
 button { cursor: pointer; transition: background .12s, border-color .12s, transform .06s; }
 button:hover { border-color: var(--muted); } button:active { transform: translateY(1px); }
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); font-weight: 600; }
@@ -113,7 +115,13 @@ footer a { color: inherit; }
         <select id="limit">
           <option value="t300">0.3 s</option><option value="t1000" selected>1 s</option><option value="t3000">3 s</option>
           <option value="d6">Depth 6</option><option value="d8">Depth 8</option><option value="d10">Depth 10 (slow)</option>
+          <option value="custom">Custom...</option>
         </select>
+        <div class="row" id="customrow" hidden>
+          <select id="ckind" aria-label="Limit type"><option value="time">Seconds per move</option><option value="depth">Depth (plies)</option></select>
+          <input id="cval" type="number" inputmode="decimal" aria-label="Limit value" min="0.1" max="600" step="0.1" value="2">
+        </div>
+        <div class="hint" id="customhint" hidden></div>
         <label for="mode">Opponent model</label>
         <select id="mode"><option value="adversarial">Adversarial</option><option value="cooperative">Cooperative</option></select>
         <div class="hint" id="modehint"></div>
@@ -143,6 +151,6 @@ window.coi = {
 </script>
 <script src="coi-serviceworker.js"></script>
 <script src="loserfish.js"></script>
-<script type="module" src="app.js?v=7"></script>
+<script type="module" src="app.js?v=8"></script>
 </body>
 </html>
