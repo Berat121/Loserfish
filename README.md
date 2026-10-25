@@ -60,6 +60,9 @@ searchmoves, Chess960 and 32-bit builds are untested. Multi-thread speedup has n
 
 ## WebAssembly
 
+Live demo: https://berat121.github.io/Loserfish/ (source in `docs/index.html`, `docs/app.js`; vendored chess.js and
+coi-serviceworker under `docs/`).
+
 Prebuilt browser files (about 520 KB `.wasm`, Emscripten 4.0.9): [`docs/loserfish.js`](docs/loserfish.js) and
 [`docs/loserfish.wasm`](docs/loserfish.wasm). Load the script, create the engine with
 `const M = await Loserfish({print: line => ...})`, then send UCI lines with

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Loserfish: an engine that wants to be checkmated</title>
+<style>
+:root {
+  --bs: min(94vw, 560px);
+  --light: #eeeed2; --dark: #769656;
+  --bg: #f4f4f2; --fg: #1d1d1b; --muted: #666; --card: #fff; --line: #d8d8d4;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #1b1b1a; --fg: #ececea; --muted: #a0a09a; --card: #262625; --line: #3a3a38; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 16px/1.45 system-ui, sans-serif; }
+main { max-width: 960px; margin: 0 auto; padding: 16px; }
+h1 { margin: 0 0 4px; font-size: 1.6rem; }
+.sub { margin: 0 0 12px; color: var(--muted); }
+#banner { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #c9a227; background: #fff6d6; color: #4a3b00; border-radius: 6px; }
+.layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+#board { position: relative; width: var(--bs); height: var(--bs); display: grid;
+  grid-template: repeat(8, 1fr) / repeat(8, 1fr); user-select: none; touch-action: manipulation;
+  border: 2px solid var(--line); }
+.sq { position: relative; display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--bs) / 8 * 0.8); line-height: 1; cursor: pointer; }
+.sq.l { background: var(--light); } .sq.d { background: var(--dark); }
+.sq.last::before, .sq.sel::before { content: ""; position: absolute; inset: 0; background: rgba(255, 235, 59, .5); }
+.sq.sel::before { background: rgba(255, 213, 0, .7); }
+.sq.chk { box-shadow: inset 0 0 0 calc(var(--bs) / 8 * .5) rgba(220, 40, 40, .55); }
+.sq.dest::after { content: ""; position: absolute; width: 28%; height: 28%; border-radius: 50%; background: rgba(0, 0, 0, .25); }
+.sq.dest.cap::after { width: 90%; height: 90%; background: none; border: 4px solid rgba(0, 0, 0, .25); }
+.p { position: relative; z-index: 1; }
+.p.w { color: #fff; text-shadow: 0 0 2px #000, 0 0 2px #000, 0 0 1px #000; }
+.p.b { color: #1a1a1a; text-shadow: 0 0 1px rgba(255, 255, 255, .5); }
+.co { position: absolute; z-index: 2; font: 600 11px/1 system-ui, sans-serif; pointer-events: none; opacity: .75; }
+.co.f { right: 3px; bottom: 2px; } .co.r { left: 3px; top: 3px; }
+.sq.l .co { color: var(--dark); } .sq.d .co { color: var(--light); }
+aside { flex: 1 1 260px; min-width: 240px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+#status { font-weight: 600; }
+#info { color: var(--muted); font-size: .9rem; min-height: 1.3em; }
+.controls { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
+.controls .full { grid-column: 1 / -1; display: flex; gap: 8px; }
+select, button { font: inherit; padding: 6px 10px; border-radius: 6px; border: 1px solid var(--line); background: var(--card); color: var(--fg); }
+button { cursor: pointer; } button:hover { border-color: var(--muted); }
+#moves { margin: 0; padding-left: 0; list-style: none; max-height: 200px; overflow: auto; font-family: ui-monospace, monospace; font-size: .9rem; }
+#moves li { display: grid; grid-template-columns: 2.5em 1fr 1fr; }
+#promo { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: flex; align-items: center; justify-content: center; z-index: 10; }
+#promo[hidden], #banner[hidden] { display: none; }
+#promo div { background: var(--card); padding: 12px; border-radius: 8px; display: flex; gap: 8px; }
+#promo button { font-size: 2.2rem; line-height: 1; padding: 6px 12px; }
+footer { margin-top: 8px; color: var(--muted); font-size: .85rem; }
+footer a { color: inherit; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Loserfish</h1>
+  <p class="sub">A Stockfish-derived engine that tries to get checkmated. Your challenge: do not mate it.</p>
+  <div id="banner" hidden></div>
+  <div class="layout">
+    <div id="board" role="grid" aria-label="Chess board"></div>
+    <aside>
+      <div class="card"><div id="status">Loading engine...</div><div id="info"></div></div>
+      <div class="card controls">
+        <label for="side">You play</label>
+        <select id="side"><option value="white">White</option><option value="black">Black</option></select>
+        <label for="time">Think time</label>
+        <select id="time"><option value="300">0.3 s</option><option value="1000" selected>1 s</option><option value="3000">3 s</option></select>
+        <label for="mode">Opponent model</label>
+        <select id="mode"><option value="adversarial">Adversarial</option><option value="cooperative">Cooperative</option></select>
+        <div class="full"><button id="new" type="button">New game</button><button id="undo" type="button">Undo</button></div>
+      </div>
+      <div class="card"><ol id="moves"></ol></div>
+    </aside>
+  </div>
+  <div id="promo" hidden><div></div></div>
+  <footer>
+    <a href="https://github.com/Berat121/Loserfish">Source on GitHub</a> (GPLv3). WebAssembly build of the engine runs in your browser.
+    Uses <a href="vendor/chess.js.LICENSE">chess.js</a> (BSD-2) and
+    <a href="vendor/coi-serviceworker.LICENSE">coi-serviceworker</a> (MIT).
+  </footer>
+</main>
+<script>window.coi = { coepCredentialless: function () { return false; } };</script>
+<script src="coi-serviceworker.js"></script>
+<script src="loserfish.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
