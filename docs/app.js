@@ -270,7 +270,7 @@ function renderEval() {
   text.style.color = bottomShare >= 0.5 ? (flip ? '#f2f2f2' : '#2b2b2b') : (flip ? '#2b2b2b' : '#f2f2f2');
   text.style.bottom = bottomShare >= 0.5 ? '3px' : 'auto';
   text.style.top = bottomShare >= 0.5 ? 'auto' : '3px';
-  $('evalhint').textContent = EVAL_HINT[mode];
+  setTip('evaltip', EVAL_HINT[mode]);
 }
 
 /* ---------- game flow ---------- */
@@ -618,13 +618,19 @@ function loadLimit() {
   } catch (e) { /* ignore unreadable storage */ }
 }
 
+function setTip(id, text) {
+  const el = $(id);
+  el.dataset.tip = text;
+  el.setAttribute('aria-label', text);
+}
+
 function applyCustomBounds() {
   const c = CUSTOM[$('ckind').value];
   const v = $('cval');
   v.min = String(c.min);
   v.max = String(c.max);
   v.step = String(c.step);
-  $('customhint').textContent = c.hint;
+  setTip('customtip', c.hint);
 }
 
 // Reads the limit controls. With fix=true an out-of-range custom value is clamped and written back to the field.
@@ -632,7 +638,6 @@ function readLimit(fix) {
   const sel = $('limit').value;
   const custom = sel === 'custom';
   $('customrow').hidden = !custom;
-  $('customhint').hidden = !custom;
   if (custom) {
     const kind = $('ckind').value;
     const c = CUSTOM[kind];
@@ -671,7 +676,7 @@ async function main() {
   $('new').addEventListener('click', resetGame);
   $('undo').addEventListener('click', undoMove);
   $('side').addEventListener('change', resetGame);
-  $('mode').addEventListener('change', () => { $('modehint').textContent = MODE_HINT[$('mode').value]; resetGame(); });
+  $('mode').addEventListener('change', () => { setTip('modetip', MODE_HINT[$('mode').value]); resetGame(); });
   $('limit').addEventListener('change', () => readLimit(true));
   $('ckind').addEventListener('change', () => {
     applyCustomBounds();
@@ -685,6 +690,11 @@ async function main() {
   $('pgn').addEventListener('click', exportPgn);
   $('copy').addEventListener('click', copyPgn);
   $('promo').addEventListener('click', () => { $('promo').hidden = true; });
+  document.addEventListener('click', (e) => {  // touch: tap an info icon to open its tooltip, tap elsewhere to close
+    const tip = e.target.closest ? e.target.closest('.tip') : null;
+    for (const t of document.querySelectorAll('.tip.open')) if (t !== tip) t.classList.remove('open');
+    if (tip) tip.classList.toggle('open');
+  });
   $('board').addEventListener('pointerdown', onPointerDown);
   document.addEventListener('pointermove', onPointerMove);
   document.addEventListener('pointerup', onPointerUp);
@@ -694,7 +704,7 @@ async function main() {
   loadLimit();
   applyCustomBounds();
   readLimit(true);
-  $('modehint').textContent = MODE_HINT[$('mode').value];
+  setTip('modetip', MODE_HINT[$('mode').value]);
   renderCoords();
   rebuildPieces();
   render();
