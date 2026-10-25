@@ -21,7 +21,7 @@ h1 { margin: 0 0 4px; font-size: 1.6rem; }
 #banner { margin: 0 0 12px; padding: 10px 12px; border: 1px solid #c9a227; background: #fff6d6; color: #4a3b00; border-radius: 6px; }
 .layout { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
 #board { position: relative; width: var(--bs); height: var(--bs); display: grid;
-  grid-template: repeat(8, 1fr) / repeat(8, 1fr); user-select: none; touch-action: manipulation;
+  grid-template: repeat(8, 1fr) / repeat(8, 1fr); user-select: none; touch-action: none;
   border-radius: 4px; overflow: hidden; box-shadow: 0 2px 14px rgba(0, 0, 0, .35); }
 .sq { position: relative; display: flex; align-items: center; justify-content: center;
   cursor: pointer; }
@@ -48,9 +48,13 @@ h1 { margin: 0 0 4px; font-size: 1.6rem; }
 .co.f { right: 3px; bottom: 2px; } .co.r { left: 3px; top: 3px; }
 .sq.l .co { color: var(--dark); } .sq.d .co { color: var(--light); }
 .sq:hover { filter: brightness(1.07); }
+.sq.over { box-shadow: inset 0 0 0 4px rgba(255, 255, 255, .75); }
+.p.ghost { opacity: .3; }
+.p.dragging { position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none; }
 aside { flex: 1 1 260px; min-width: 240px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 12px; }
 #status { font-weight: 600; }
+.hint { color: var(--muted); font-size: .85rem; display: block !important; }
 #info { color: var(--muted); font-size: .9rem; min-height: 1.3em; }
 .controls { display: grid; grid-template-columns: auto 1fr; gap: 8px 10px; align-items: center; }
 .controls .full { grid-column: 1 / -1; display: flex; gap: 8px; }
@@ -83,6 +87,7 @@ footer a { color: inherit; }
         <select id="time"><option value="300">0.3 s</option><option value="1000" selected>1 s</option><option value="3000">3 s</option></select>
         <label for="mode">Opponent model</label>
         <select id="mode"><option value="adversarial">Adversarial</option><option value="cooperative">Cooperative</option></select>
+        <div class="hint full" id="modehint"></div>
         <div class="full"><button id="new" type="button">New game</button><button id="undo" type="button">Undo</button></div>
       </div>
       <div class="card"><ol id="moves"></ol></div>
@@ -98,6 +103,6 @@ footer a { color: inherit; }
 <script>window.coi = { coepCredentialless: function () { return false; } };</script>
 <script src="coi-serviceworker.js"></script>
 <script src="loserfish.js"></script>
-<script type="module" src="app.js?v=2"></script>
+<script type="module" src="app.js?v=4"></script>
 </body>
 </html>

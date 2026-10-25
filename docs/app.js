@@ -182,18 +182,106 @@ function askPromotion(from, to) {
   $('promo').hidden = false;
 }
 
-function onSquare(sq) {
-  if (!ready || game.isGameOver() || game.turn() !== human) return;
-  if (selected) {
-    const legal = game.moves({ square: selected, verbose: true }).filter((m) => m.to === sq);
-    if (legal.length) {
-      if (legal[0].promotion) { askPromotion(selected, sq); return; }
-      humanMove(selected, sq);
-      return;
-    }
+let drag = null;
+
+function squareAt(x, y) {
+  const r = $('board').getBoundingClientRect();
+  if (!r.width) return null;
+  let col = Math.floor(((x - r.left) / r.width) * 8);
+  let row = Math.floor(((y - r.top) / r.height) * 8);
+  if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+  if (human === 'b') { col = 7 - col; row = 7 - row; }
+  return FILES[col] + (8 - row);
+}
+
+function tryMoveTo(from, to) {
+  const legal = game.moves({ square: from, verbose: true }).filter((m) => m.to === to);
+  if (!legal.length) return false;
+  if (legal[0].promotion) {
+    selected = from;
+    askPromotion(from, to);
+    return true;
   }
+  humanMove(from, to);
+  return true;
+}
+
+function endDrag() {
+  if (!drag) return;
+  if (drag.ghost) drag.ghost.remove();
+  document.body.style.cursor = '';
+  drag = null;
+}
+
+function onPointerDown(e) {
+  if (e.button > 0 || drag) return;
+  if (!ready || game.isGameOver() || game.turn() !== human) return;
+  const sq = squareAt(e.clientX, e.clientY);
+  if (!sq) return;
+  e.preventDefault();
+  if (selected && tryMoveTo(selected, sq)) return;
   const piece = game.get(sq);
-  selected = piece && piece.color === human && selected !== sq ? sq : null;
+  if (piece && piece.color === human) {
+    const wasSelected = selected === sq;
+    selected = sq;
+    render();
+    drag = {
+      id: e.pointerId, from: sq, piece, x0: e.clientX, y0: e.clientY, moved: false, wasSelected, gen,
+      ghost: null, size: 0, over: null,
+      dests: new Set(game.moves({ square: sq, verbose: true }).map((m) => m.to)),
+    };
+    try { $('board').setPointerCapture(e.pointerId); } catch (err) { /* document listeners still receive the events */ }
+  } else {
+    selected = null;
+    render();
+  }
+}
+
+function onPointerMove(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  if (drag.gen !== gen) { endDrag(); render(); return; }
+  if (!drag.moved) {
+    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 4) return;
+    drag.moved = true;
+    drag.size = $('board').getBoundingClientRect().width / 8;
+    const g = document.createElement('div');
+    g.className = pieceClass(drag.piece.color, drag.piece.type) + ' dragging';
+    g.style.width = drag.size + 'px';
+    g.style.height = drag.size + 'px';
+    document.body.appendChild(g);
+    drag.ghost = g;
+    const src = document.querySelector('#board [data-sq="' + drag.from + '"] .p');
+    if (src) src.classList.add('ghost');
+    document.body.style.cursor = 'grabbing';
+  }
+  drag.ghost.style.transform = 'translate(' + (e.clientX - drag.size / 2) + 'px, ' + (e.clientY - drag.size / 2) + 'px)';
+  const sq = squareAt(e.clientX, e.clientY);
+  if (sq !== drag.over) {
+    const prev = drag.over && document.querySelector('#board [data-sq="' + drag.over + '"]');
+    if (prev) prev.classList.remove('over');
+    drag.over = sq;
+    const cur = sq && drag.dests.has(sq) && document.querySelector('#board [data-sq="' + sq + '"]');
+    if (cur) cur.classList.add('over');
+  }
+}
+
+function onPointerUp(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  const d = drag;
+  endDrag();
+  if (d.gen !== gen) { render(); return; }
+  if (!d.moved) {
+    if (d.wasSelected) { selected = null; render(); }
+    return;
+  }
+  const sq = squareAt(e.clientX, e.clientY);
+  if (sq && d.dests.has(sq) && tryMoveTo(d.from, sq)) return;
+  render();
+}
+
+function onPointerCancel(e) {
+  if (!drag || e.pointerId !== drag.id) return;
+  endDrag();
   render();
 }
 
@@ -246,7 +334,6 @@ function render() {
       }
       if (c === 0) { const n = document.createElement('span'); n.className = 'co r'; n.textContent = String(8 - row); el.appendChild(n); }
       if (r === 7) { const n = document.createElement('span'); n.className = 'co f'; n.textContent = FILES[col]; el.appendChild(n); }
-      el.addEventListener('click', () => onSquare(sq));
       boardEl.appendChild(el);
     }
   }
@@ -266,13 +353,27 @@ function render() {
   list.scrollTop = list.scrollHeight;
 }
 
+const MODE_HINT = {
+  adversarial: 'Adversarial: Loserfish assumes you play the worst moves for its goal, so it avoids relying on you to mate it. This is the default and the strongest model.',
+  cooperative: 'Cooperative: Loserfish assumes you mate it whenever you can. It is fast against opponents that play for a win, but a refusing opponent can stall it.',
+};
+
+function updateHint() {
+  $('modehint').textContent = MODE_HINT[$('mode').value];
+}
+
 async function main() {
   $('new').addEventListener('click', resetGame);
   $('undo').addEventListener('click', undoMove);
   $('side').addEventListener('change', resetGame);
-  $('mode').addEventListener('change', resetGame);
+  $('mode').addEventListener('change', () => { updateHint(); resetGame(); });
+  updateHint();
   $('time').addEventListener('change', () => { movetime = Number($('time').value); });
   $('promo').addEventListener('click', () => { $('promo').hidden = true; });
+  $('board').addEventListener('pointerdown', onPointerDown);
+  document.addEventListener('pointermove', onPointerMove);
+  document.addEventListener('pointerup', onPointerUp);
+  document.addEventListener('pointercancel', onPointerCancel);
   human = $('side').value === 'white' ? 'w' : 'b';
   movetime = Number($('time').value);
   render();
