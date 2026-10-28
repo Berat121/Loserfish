@@ -24,10 +24,16 @@ jobs:
           EXPECT_ZERO=1 build/lose_selftest 0 < tests/lose_stalemate_fens.txt
           for d in 1 2 3; do build/lose_selftest $d < tests/lose_stalemate_parent_fens.txt; done
           EXPECT_VALUE=-29999 MIS_PLYCAP=1 build/lose_selftest 3 < tests/lose_allmate_fens.txt
+      - name: Opponent model unit test
+        run: |
+          cmake --build build --target opponent_selftest -j2
+          build/opponent_selftest
       - name: Smoke games (engine must never win, no illegal moves)
         run: |
           pip install chess
           python3 tests/loserfish_play.py 4 normal adversarial 0.05 | tee smoke.txt
           ! grep -q "WON(bad)" smoke.txt
+          python3 tests/loserfish_play.py 4 normal adaptive 0.05 | tee smoke_adaptive.txt
+          ! grep -q "WON(bad)" smoke_adaptive.txt
       - name: UCI protocol tests (searchmoves, infinite, ponder, Chess960, all-moves-mate traps)
         run: python3 tests/uci_protocol_test.py src/loserfish
