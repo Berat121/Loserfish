@@ -1,0 +1,52 @@
+name: WASM
+
+# Builds docs/loserfish.js and docs/loserfish.wasm with Emscripten 4.0.9, the version of the prebuilt files.
+# Manual run (Actions tab, "Run workflow"): pick the branch and tick "commit" to write the files into docs/.
+# A push that changes this file or scripts/build_wasm.sh rebuilds too; on branches other than main the
+# result is committed to docs/, so the branch carries matching files.
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Commit the built files to docs/ on the selected branch
+        type: boolean
+        default: false
+  push:
+    paths:
+      - .github/workflows/wasm.yml
+      - scripts/build_wasm.sh
+
+permissions:
+  contents: write
+
+jobs:
+  wasm:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Emscripten 4.0.9
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$HOME/emsdk"
+          "$HOME/emsdk/emsdk" install 4.0.9
+          "$HOME/emsdk/emsdk" activate 4.0.9
+      - name: Build the browser files and the Node variant, run the smoke test
+        run: |
+          . "$HOME/emsdk/emsdk_env.sh"
+          sh scripts/build_wasm.sh web build-wasm
+          sh scripts/build_wasm.sh node build-wasm-node
+          node tests/wasm_smoke.cjs build-wasm-node/loserfish.js
+      - uses: actions/upload-artifact@v4
+        with:
+          name: loserfish-wasm
+          path: |
+            build-wasm/loserfish.js
+            build-wasm/loserfish.wasm
+      - name: Commit the files to docs/
+        if: ${{ (github.event_name == 'workflow_dispatch' && inputs.commit) || (github.event_name == 'push' && github.ref != 'refs/heads/main') }}
+        run: |
+          cp build-wasm/loserfish.js build-wasm/loserfish.wasm docs/
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/loserfish.js docs/loserfish.wasm
+          git diff --cached --quiet || git commit -m "Rebuild docs WASM with Emscripten 4.0.9"
+          git push
