@@ -24,11 +24,13 @@
 #include <cstddef>
 #include <iostream>
 #include <string>
+#include <utility>
 
 #include "attacks.h"
 #include "bitboard.h"
 #include "misere.h"
 #include "movegen.h"
+#include "opponent.h"
 #include "uci.h"
 
 namespace Stockfish::Lose {
@@ -144,6 +146,17 @@ int leaf_score(const Position& pos, Color us) {
         score += 100;
 
     return score;
+}
+
+// Among equally short mates in one: how likely the opponent is to play one (mixture over opponent
+// types), then how lost we look afterwards.
+std::pair<int, int> offer_key(Position& pos, Move m, Color us, const OpponentModel& model) {
+    const double p = model.normal + model.random * mate_chance(pos, m);
+    StateInfo    st;
+    pos.do_move(m, st, nullptr);
+    const int lost = leaf_score(pos, us);
+    pos.undo_move(m);
+    return {int(p * 1e6), lost};
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +330,8 @@ static Result choose_cooperative(Position&                 pos,
                                  int                       mateDepth,
                                  Misere::Report            report,
                                  const std::atomic_bool*   ponder,
-                                 TimePoint                 moveOverhead) {
+                                 TimePoint                 moveOverhead,
+                                 const OpponentModel&      model) {
 
     Result res;
     if (rootMoves.empty())
@@ -462,24 +476,37 @@ static Result choose_cooperative(Position&                 pos,
     for (int d = 2; d <= mateDepth; d += 2)
     {
         c.bestMatePly = INT_MAX;
-        int               bestV = NoScore;
-        Move              bestM = Move::none();
-        std::vector<Move> bestLine;
+        int                 bestV = NoScore;
+        Move                bestM = Move::none();
+        std::vector<Move>   bestLine;
+        std::pair<int, int> bestKey{INT_MIN, INT_MIN};
 
         for (const Move m : order)
         {
             pos.do_move(m, c.states[0], nullptr);
-            const int v = coop<true>(c, 1, d - 1);
-            if (v > bestV && !c.aborted)
+            const int         v = coop<true>(c, 1, d - 1);
+            std::vector<Move> line;
+            if (!c.aborted && v > NoScore)
             {
-                bestV = v;
-                bestM = m;
-                bestLine.assign(1, m);
-                bestLine.insert(bestLine.end(), c.pv[1], c.pv[1] + c.pvLen[1]);
+                line.assign(1, m);
+                line.insert(line.end(), c.pv[1], c.pv[1] + c.pvLen[1]);
             }
             pos.undo_move(m);
             if (c.aborted)
                 break;
+            if (line.empty() || v < bestV)
+                continue;
+
+            // Equally short mates in one: prefer the one the opponent is most likely to play.
+            const std::pair<int, int> key =
+              v == MateScore - 2 ? offer_key(pos, m, us, model) : std::pair<int, int>{0, 0};
+            if (v > bestV || key > bestKey)
+            {
+                bestV    = v;
+                bestM    = m;
+                bestLine = std::move(line);
+                bestKey  = key;
+            }
         }
         if (c.aborted)
             return res;
@@ -505,26 +532,42 @@ static Result choose_cooperative(Position&                 pos,
     return res;
 }
 
-Result choose(Position&                 pos,
-              const std::vector<Move>&  rootMoves,
-              const Search::LimitsType& limits,
-              const std::atomic_bool&   stop,
-              const Params&             params) {
+namespace {
 
-    if (params.cooperative)
-        return choose_cooperative(pos, rootMoves, limits, stop, params.safetyDepth,
-                                  params.mateDepth, params.report, params.ponder,
-                                  params.moveOverhead);
+// Phase budgets of the adaptive mode, in percent of the move time.
+constexpr int    ProofShare     = 40;   // adversarial search for a forced loss
+constexpr int    ExploitShare   = 85;   // proof and cooperative search together; the rest verifies the pick
+constexpr double RefuserCertain = 0.8;  // posterior at which only forced lines are still worth searching
 
+int pct(double p) { return int(p * 100.0 + 0.5); }
+
+// The same limits with a fixed move time that counts from startTime.
+Search::LimitsType
+with_budget(const Search::LimitsType& base, TimePoint startTime, TimePoint ms, TimePoint overhead) {
+    Search::LimitsType l = base;
+    l.time[WHITE] = l.time[BLACK] = l.inc[WHITE] = l.inc[BLACK] = 0;
+    l.movestogo = 0;
+    l.movetime  = ms + std::max<TimePoint>(overhead, 0);
+    l.startTime = startTime;
+    return l;
+}
+
+Misere::Result run_adversarial(Position&                 pos,
+                               const std::vector<Move>&  rootMoves,
+                               const Search::LimitsType& limits,
+                               const std::atomic_bool&   stop,
+                               const Params&             params) {
     Misere::Config cfg;
-    cfg.hashMB  = params.hashMB;
-    cfg.threads = params.threads;
-    cfg.ponder  = params.ponder;
-    cfg.report  = params.report;
+    cfg.hashMB       = params.hashMB;
+    cfg.threads      = params.threads;
+    cfg.ponder       = params.ponder;
+    cfg.report       = params.report;
     cfg.moveOverhead = params.moveOverhead;
     cfg.extCap       = params.extCap;
-    const Misere::Result r = Misere::search(pos, rootMoves, limits, stop, cfg);
+    return Misere::search(pos, rootMoves, limits, stop, cfg);
+}
 
+Result from_adversarial(const Misere::Result& r) {
     Result res;
     res.best    = r.best;
     res.ponder  = r.ponder;
@@ -533,6 +576,105 @@ Result choose(Position&                 pos,
     return res;
 }
 
-void new_game() { Misere::new_game(); }
+}  // namespace
+
+// Adaptive mode: prove, exploit, verify.
+//  1. The adversarial search looks for a forced loss. One is the best outcome against every kind of
+//     opponent, so it is played at once.
+//  2. Otherwise the cooperative search picks the move that offers the opponent a mate, preferring
+//     the offer the opponent is most likely to take. Its types and their probabilities come from
+//     the game so far (see opponent.h). An opponent that has declined mates is searched for
+//     forced lines only.
+//  3. The pick is vetoed when the adversarial search shows that it loses to a forced win of the
+//     opponent (we would be forced to mate it), which the shallow safety search of step 2 can miss.
+static Result choose_adaptive(Position&                 pos,
+                              const std::vector<Move>&  rootMoves,
+                              const Search::LimitsType& limits,
+                              const std::atomic_bool&   stop,
+                              const Params&             params) {
+
+    // Pondering and infinite searches have no budget to split: use the worst-case search.
+    if (limits.infinite || limits.ponderMode || rootMoves.size() < 2)
+        return from_adversarial(run_adversarial(pos, rootMoves, limits, stop, params));
+
+    const Color            us     = pos.side_to_move();
+    const TimePoint        t0     = limits.startTime ? limits.startTime : now();
+    const Misere::TimePlan plan   = Misere::plan_time(limits, us, params.moveOverhead);
+    const TimePoint        budget = limits.movetime ? plan.hard : plan.base;  // 0: depth or nodes limit only
+
+    const OpponentModel model = infer_opponent(pos);
+    sync_cout << "info string lose-adaptive opponent normal " << pct(model.normal) << " refuser "
+              << pct(model.refuser) << " random " << pct(model.random) << " chances "
+              << model.chances << " taken " << model.taken << sync_endl;
+
+    if (model.refuser >= RefuserCertain)
+        return from_adversarial(run_adversarial(pos, rootMoves, limits, stop, params));
+
+    // 1. Proof.
+    const Search::LimitsType proofLimits =
+      budget ? with_budget(limits, t0, budget * ProofShare / 100, params.moveOverhead) : limits;
+    const Misere::Result proof = run_adversarial(pos, rootMoves, proofLimits, stop, params);
+    if (proof.matePly > 0 || stop.load(std::memory_order_relaxed))
+        return from_adversarial(proof);
+
+    // 2. Exploit.
+    const Search::LimitsType coopLimits =
+      budget ? with_budget(limits, t0, budget * ExploitShare / 100, params.moveOverhead) : limits;
+    const Result coop =
+      choose_cooperative(pos, rootMoves, coopLimits, stop, params.safetyDepth, params.mateDepth,
+                         params.report, nullptr, params.moveOverhead, model);
+
+    Move pick = coop.best;
+    // No line to exploit and an opponent that probably refuses: keep the sound search's move.
+    if (pick == Move::none() || (coop.matePly == 0 && model.refuser >= 0.5))
+        pick = proof.best;
+
+    // 3. Veto.
+    if (pick != proof.best && !stop.load(std::memory_order_relaxed))
+    {
+        const TimePoint deadline = budget ? t0 + budget : 0;
+        if (Misere::forced_to_mate(pos, pick, std::clamp(proof.depth + 2, 4, 24), deadline, stop,
+                                   params.extCap))
+        {
+            sync_cout << "info string lose-adaptive veto: the opponent can force us to mate it after "
+                      << UCIEngine::move(pick, pos.is_chess960()) << sync_endl;
+            pick = proof.best;
+        }
+    }
+
+    Result res;
+    res.nodes = proof.nodes;
+    res.best  = pick;
+    if (pick == coop.best)
+    {
+        res.ponder  = coop.ponder;
+        res.matePly = coop.matePly;
+    }
+    else
+        res.ponder = proof.ponder;
+    return res;
+}
+
+Result choose(Position&                 pos,
+              const std::vector<Move>&  rootMoves,
+              const Search::LimitsType& limits,
+              const std::atomic_bool&   stop,
+              const Params&             params) {
+
+    if (params.adaptive)
+        return choose_adaptive(pos, rootMoves, limits, stop, params);
+
+    if (params.cooperative)
+        return choose_cooperative(pos, rootMoves, limits, stop, params.safetyDepth,
+                                  params.mateDepth, params.report, params.ponder,
+                                  params.moveOverhead, infer_opponent(pos));
+
+    return from_adversarial(run_adversarial(pos, rootMoves, limits, stop, params));
+}
+
+void new_game() {
+    Misere::new_game();
+    clear_history();
+}
 
 }  // namespace Stockfish::Lose

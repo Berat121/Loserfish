@@ -752,6 +752,36 @@ void helper_loop(Helper* h, int idx, std::vector<RootEntry> rms, int maxDepth) {
 }  // namespace
 
 
+bool forced_to_mate(Position&               pos,
+                    Move                    m,
+                    int                     maxDepth,
+                    TimePoint               deadline,
+                    const std::atomic_bool& stop,
+                    int                     extCap) {
+    Searcher s(pos, stop, gTable, hist_for(0), false);
+    s.extCap   = std::clamp(extCap, 0, 99);
+    s.deadline = deadline;
+
+    const bool inCheck    = bool(pos.checkers());
+    const bool givesCheck = pos.gives_check(m);
+
+    for (int depth = 1; depth <= std::min(maxDepth, MaxPly - 2); ++depth)
+    {
+        s.curMove[0] = m;
+        s.extN[1]    = inCheck ? 1 : 0;
+        pos.do_move(m, s.states[0], givesCheck, nullptr, nullptr);
+        // Null window just below the opponent's mate score: it fails high exactly when the
+        // opponent can force its own checkmate, which is our forced win.
+        const int v = s.search(1, depth - 1 + (inCheck ? 1 : 0), MateInMax - 1, MateInMax, false);
+        pos.undo_move(m);
+        if (s.aborted)
+            return false;
+        if (v >= MateInMax)
+            return true;
+    }
+    return false;
+}
+
 void new_game() {
     gTable.clear();
     for (auto& h : gHists)

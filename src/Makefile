@@ -79,11 +79,11 @@ PGOBENCH = $(RUN_PREFIX) ./$(EXE) bench
 SRCS = attacks.cpp benchmark.cpp bitboard.cpp evaluate.cpp main.cpp \
 	misc.cpp movegen.cpp movepick.cpp position.cpp \
 	search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp syzygy/tbprobe.cpp \
-	engine.cpp score.cpp memory.cpp losesearch.cpp misere.cpp
+	engine.cpp score.cpp memory.cpp losesearch.cpp misere.cpp opponent.cpp
 
 HEADERS = attacks.h benchmark.h bitboard.h evaluate.h misc.h movegen.h movepick.h history.h \
 		position.h search.h syzygy/tbprobe.h thread.h thread_native.h timeman.h \
-		tt.h tune.h types.h uci.h ucioption.h perft.h engine.h score.h numa.h memory.h shm.h shm_unix.h losesearch.h misere.h
+		tt.h tune.h types.h uci.h ucioption.h perft.h engine.h score.h numa.h memory.h shm.h shm_unix.h losesearch.h misere.h opponent.h
 
 OBJS = $(notdir $(SRCS:.cpp=.o))
 

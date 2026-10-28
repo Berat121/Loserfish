@@ -79,6 +79,16 @@ Result search(Position&                 pos,
               const std::atomic_bool&   stop,
               const Config&             cfg);
 
+// Checks one root move with the adversarial search: true when the opponent can force us to checkmate
+// it (the move loses to a forced mate by us) within maxDepth plies. Deepens until maxDepth, the
+// absolute deadline (0: none) or stop; an interrupted check proves nothing and answers false.
+bool forced_to_mate(Position&               pos,
+                    Move                    m,
+                    int                     maxDepth,
+                    TimePoint               deadline,
+                    const std::atomic_bool& stop,
+                    int                     extCap);
+
 void new_game();
 
 // Test hooks: root value of pos at a fixed depth with pruning disabled (exact mode),

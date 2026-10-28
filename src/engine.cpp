@@ -32,6 +32,7 @@
 
 #include "evaluate.h"
 #include "losesearch.h"
+#include "opponent.h"
 #include "misc.h"
 #include "numa.h"
 #include "perft.h"
@@ -192,18 +193,29 @@ std::optional<PositionSetError> Engine::set_position(const std::string&         
     states   = StateListPtr(new std::deque<StateInfo>(1));
     auto err = pos.set(fen, options["UCI_Chess960"], &states->back());
     if (err.has_value())
+    {
+        Lose::clear_history();
         return err;
+    }
 
+    std::vector<Move> played;
     for (const auto& move : moves)
     {
         auto m = UCIEngine::to_move(pos, move);
 
         if (m == Move::none())
+        {
+            Lose::clear_history();
             return PositionSetError("Illegal move: " + move);
+        }
 
         states->emplace_back();
         pos.do_move(m, states->back());
+        played.push_back(m);
     }
+
+    // The opponent model of the lose mode learns from the game so far.
+    Lose::set_history(fen, options["UCI_Chess960"], played);
 
     return std::nullopt;
 }

@@ -235,7 +235,11 @@ void Search::Worker::start_searching() {
                           : rep == "inverted"   ? Misere::Report::Inverted
                                                 : Misere::Report::Neutral;
         }
-        params.cooperative = std::string(options["LoseOpponent"]) == "cooperative";
+        {
+            const std::string opponent = options["LoseOpponent"];
+            params.cooperative         = opponent == "cooperative";
+            params.adaptive            = opponent == "adaptive";
+        }
 
         const Lose::Result r = Lose::choose(rootPos, moves, limits, threads.stop, params);
 

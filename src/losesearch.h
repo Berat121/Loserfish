@@ -45,6 +45,7 @@ struct Params {
     int  threads     = 1;      // adversarial mode: Lazy SMP search threads
     Misere::Report report = Misere::Report::Neutral;  // how scores are shown in info lines
     bool cooperative = false;  // false: worst-case (misere) opponent, true: opponent mates us if it can
+    bool adaptive    = false;  // proof first, then exploit the opponent type learned from the game
     TimePoint moveOverhead = 30;  // ms reserved per move for GUI and I/O latency
     int       extCap       = 3;   // LoseExtCap: free check evasions per path in the adversarial search
 };
@@ -52,6 +53,9 @@ struct Params {
 // Chooses a move for the engine, whose goal is to lose (get checkmated) and never to win.
 // Adversarial (default): the opponent is assumed to play the worst moves against that goal.
 // Cooperative: the opponent is assumed to mate us whenever it can.
+// Adaptive: searches for a forced loss first (adversarial search); without one it plays for the
+// opponent type the game so far suggests (mate-taker, refuser or random) and vetoes any move the
+// adversarial search shows to be a forced win for the opponent.
 // rootMoves must contain the legal moves of pos. Runs on the calling thread.
 Result choose(Position&                  pos,
               const std::vector<Move>&   rootMoves,

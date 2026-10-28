@@ -10,6 +10,7 @@ Outcomes for the engine, best to worst: it is checkmated; draw; it checkmates th
 By default the opponent is assumed to play the worst moves against that goal (it avoids mating us and
 tries to force us to mate it). That is misere chess: zero-sum, so alpha-beta applies.
 Option `LoseOpponent=cooperative` instead assumes the opponent mates whenever it can.
+`LoseOpponent=adaptive` (experimental) searches for a forced loss first, then plays for the opponent type the game so far suggests.
 
 Search (`src/misere.cpp`): iterative deepening PVS, lock-free shared transposition table, mate distance
 pruning with misere bounds, LMR, history/killers, free check evasions, Lazy SMP (`Threads`).
@@ -34,7 +35,7 @@ MSVC is not supported. NNUE and nets were removed; no downloads needed.
 | Option | Default | Meaning |
 |---|---|---|
 | LoseMode | true | false falls back to the plain Stockfish search (material eval only) |
-| LoseOpponent | adversarial | `adversarial` or `cooperative` |
+| LoseOpponent | adversarial | `adversarial`, `cooperative` or `adaptive` |
 | LoseScore | neutral | score shown to GUIs: `neutral` (always cp 0), `natural`, `inverted`. Neutral avoids GUI resign adjudication |
 | LoseExtCap | 3 | adversarial search only: free check evasions allowed per path (0-99). Mutual checks otherwise never consume depth; 99 disables the cap |
 | LoseSafetyDepth / LoseMateDepth | 6 / 8 | cooperative mode only |

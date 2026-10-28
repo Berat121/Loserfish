@@ -36,7 +36,7 @@ def best(line): return line.split()[1] if line else None
 
 # 1. Positions where every legal move mates: the engine must still return a legal move.
 TRAPS = ["K7/1q3Q2/k4P2/8/8/1N4P1/8/8 w - - 0 1", "K1k5/1q6/Q7/8/5Q2/3Q4/8/8 w - - 0 1", "8/1B6/8/8/R7/Q7/q7/k1r4K w - - 0 1"]
-for opp in ("adversarial", "cooperative"):
+for opp in ("adversarial", "cooperative", "adaptive"):
     for thr in (1, 2):
         for fen in TRAPS:
             e = Eng(); e.send(f"setoption name LoseOpponent value {opp}"); e.send(f"setoption name Threads value {thr}")
@@ -102,7 +102,7 @@ def timed(opp, overhead, go):
     r = e.wait("bestmove", 15); dt = (time.time() - t) * 1000
     e.close()
     return r is not None, dt
-for opp in ("adversarial", "cooperative"):
+for opp in ("adversarial", "cooperative", "adaptive"):
     ok, dt = timed(opp, 400, "go movetime 1000")
     check(f"{opp} movetime honors Move Overhead", ok and dt <= 750, f"took {dt:.0f} ms")
     ok, dt = timed(opp, 30, "go wtime 3000 btime 3000 movestogo 1")

@@ -23,12 +23,13 @@ avoids mating us, and tries to force us to mate it. That makes the game exactly 
 - The game is zero-sum, so minimax and alpha-beta are valid.
 - Both sides use the same evaluation function, seen from the side to move.
 
-Two modes, option LoseOpponent:
+Three modes, option LoseOpponent:
 
 - adversarial (default): the model above. Robust against any opponent, but cannot force a loss against
   an opponent who refuses to mate, unless a forcing line (zugzwang, forced capture chains) exists.
 - cooperative: the opponent is assumed to mate us whenever it can. Fast against engines that try to win,
   useless against opponents who decline mate. Kept for comparison and as a fallback.
+- adaptive (experimental): proves first, exploits second. See section 6.
 
 ## 3. Source layout
 
@@ -36,6 +37,7 @@ Stockfish file names are unchanged. NNUE, incbin, the universal build and all Di
 removed from the upstream tree. Added or changed files:
 
 - src/misere.cpp, src/misere.h: the adversarial search (default).
+- src/opponent.cpp, src/opponent.h: opponent type inferred from the game so far (adaptive mode).
 - src/losesearch.cpp, src/losesearch.h: dispatcher (choose) and the cooperative mode (mate search plus
   safety search).
 - src/search.cpp: start_searching calls Lose::choose when LoseMode is on.
@@ -85,6 +87,24 @@ mated. It is cheap on purpose (several million nodes per second per thread).
   for us (plies set by LoseSafetyDepth, default 6).
 - Mate search: iterative deepening helpmate-style search for the shortest line ending in our mate
   (LoseMateDepth, default 8), then a heuristic head-towards-loss search when no mate is found.
+  Among equally short mates in one the move is chosen by how likely the opponent is to play the mate
+  (opponent model below), then by the leaf score.
+
+### Adaptive mode (LoseOpponent=adaptive, experimental)
+
+1. Proof: the adversarial search gets 40% of the move time. A forced loss is the best outcome against every
+   kind of opponent and is played at once.
+2. Exploit: otherwise the cooperative search picks the move (85% of the move time in total). The opponent type
+   (mate-taker, refuser, random) is a Bayesian posterior over the mates in one the opponent had in the game so far
+   and took or declined (src/opponent.cpp; Engine::set_position records the game). A player that declines a mate
+   it has is almost never a mate-taker. With refuser probability of 0.8 or more only the adversarial search runs;
+   with 0.5 or more and no mate line found the adversarial move is kept.
+3. Veto: the cooperative pick is checked with the adversarial search (Misere::forced_to_mate, one root move,
+   deeper than the proof phase reached). A pick that loses to a forced win of the opponent is replaced by the
+   adversarial move. This covers what the shallow safety scan of the cooperative mode can miss.
+
+Pondering and infinite searches use the adversarial search because there is no budget to split.
+The "info string lose-adaptive" lines show the posterior and any veto.
 
 ## 7. UCI behavior
 
@@ -99,7 +119,7 @@ mated. It is cheap on purpose (several million nodes per second per thread).
 ## 8. UCI options added
 
 - LoseMode (check, default true)
-- LoseOpponent (string, adversarial or cooperative, default adversarial)
+- LoseOpponent (string, adversarial, cooperative or adaptive, default adversarial)
 - LoseSafetyDepth (spin 1 to 12, default 6, cooperative mode)
 - LoseMateDepth (spin 2 to 16, default 8, cooperative mode)
 - LoseScore (string: neutral, natural or inverted, default neutral)
@@ -126,6 +146,13 @@ cmake --build build. Verified on Linux only. Windows (MinGW) and 32-bit builds a
 - Play-outs (tests/loserfish_play.py, python-chess): 12 of 12 games lost against a normal engine at
   100 ms per move; 8 of 8 games between two adversarial Loserfish engines ended in threefold repetition
   with nobody winning; no illegal moves in any game.
+- Adaptive mode (opponent Stockfish 16 through python-chess, 1 core, random 6-ply openings). Mean plies until
+  Loserfish was mated against a normal engine at 100 ms per move: adaptive 23.8, adversarial 26.9, cooperative 21.6
+  (14 games each, standard errors 2.4 to 2.9, no significant difference). At 50 ms per move (20 ms search time with
+  the default overhead) adaptive 17.0 against adversarial 22.2 (36 games each); this did not reproduce at 100 ms.
+  Against Stockfish that never plays a mating move: 0 of 8 mated, all threefold repetition, same as the other modes.
+  Against a random mover (12 games, 300 plies): 1 mated for adaptive and for cooperative, 1 of 6 for adversarial.
+  Loserfish never mated the opponent in any test game, and the veto never fired in 219 adaptive decisions.
 - Games against a human who was also trying to lose: no checkmate happened. In one game the GUI marked
   "Black resigns" because of the score sign convention (the reason for the LoseScore option). The engine
   kept offering mate, then used forcing checks and sacrifices.
@@ -134,6 +161,9 @@ cmake --build build. Verified on Linux only. Windows (MinGW) and 32-bit builds a
 
 - Cannot force a loss against an opponent who refuses to mate, apart from zugzwang-like forced lines;
   two adversarial engines draw by repetition.
+- Adaptive mode has no measured gain over the other modes yet. The opponent model learns only from mates in one,
+  so a refuser and a random mover look alike for a long time (after 20 declined chances the posterior was
+  about 73 to 27). Offers made to a random mover are rarely taken (about 1 in 30 each).
 - Syzygy code is still compiled in but unused in lose mode.
 - Evaluation is simple; only one tuning experiment (flight squares) has been run, on a small sample.
 - Multi-thread speedup has not been measured on a multi-core machine; correctness was checked with
@@ -154,6 +184,10 @@ Loserfish is derived from Stockfish and is distributed under the GNU General Pub
 
 ## 14. Change log
 
+- Adaptive mode (LoseOpponent=adaptive, experimental): src/opponent.cpp infers the opponent type from the mates in
+  one it took or declined; losesearch.cpp runs the adversarial search for a forced loss, then the cooperative
+  search (ties between mates in one broken by the opponent's chance to play them), then a veto through
+  Misere::forced_to_mate. Unit test: tests/opponent_selftest.cpp.
 - Lazy SMP: Threads option; helpers have own Position copies and history; shared table of two relaxed
   atomic words per slot (key xor data), so there are no data races (ThreadSanitizer: 0 warnings).
 - LoseScore option: neutral (default, always cp 0), natural, inverted.

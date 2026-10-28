@@ -14,6 +14,13 @@ Play-out tests (needs python-chess):
     python3 loserfish_play.py 12 normal adversarial 0.1   # vs a normal engine
     python3 loserfish_play.py 8 adv adversarial 0.1       # both sides want to be mated
 
+## opponent_selftest.cpp
+
+Unit test of the opponent model of the adaptive mode (history replay, Bayesian update, mate chance):
+
+    cmake --build build --target opponent_selftest
+    build/opponent_selftest
+
 ## uci_protocol_test.py
 
 Needs python-chess. Checks: positions where every legal move mates (legal move returned, both

@@ -6,7 +6,7 @@ ENGINE = os.environ.get("LOSERFISH", os.path.join(os.path.dirname(os.path.abspat
 OPP_ENGINE = os.environ.get("OPPENGINE", ENGINE)  # optional different binary for the opponent
 # usage: play_games.py N OPP [MODE] [MOVETIME]
 #   OPP  = normal | adv | coop      (what Loserfish plays against)
-#   MODE = adversarial | cooperative (Loserfish's own assumption, default adversarial)
+#   MODE = adversarial | cooperative | adaptive (Loserfish's own assumption, default adversarial)
 
 def play(args):
     seed, opp_kind, mode, mt = args

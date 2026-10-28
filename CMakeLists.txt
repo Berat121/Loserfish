@@ -20,7 +20,7 @@ set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 set(SOURCES
   attacks.cpp benchmark.cpp bitboard.cpp evaluate.cpp main.cpp misc.cpp movegen.cpp movepick.cpp
   position.cpp search.cpp thread.cpp timeman.cpp tt.cpp uci.cpp ucioption.cpp tune.cpp
-  syzygy/tbprobe.cpp engine.cpp score.cpp memory.cpp losesearch.cpp misere.cpp)
+  syzygy/tbprobe.cpp engine.cpp score.cpp memory.cpp losesearch.cpp misere.cpp opponent.cpp)
 list(TRANSFORM SOURCES PREPEND ${SRC_DIR}/)
 
 set(SELFTEST_SOURCES ${SOURCES})
@@ -59,3 +59,8 @@ loserfish_setup(loserfish)
 #   cmake --build build --target lose_selftest
 add_executable(lose_selftest EXCLUDE_FROM_ALL ${CMAKE_SOURCE_DIR}/tests/lose_selftest.cpp ${SELFTEST_SOURCES})
 loserfish_setup(lose_selftest)
+
+# Unit test of the opponent model (history replay, Bayesian update, mate chance), not built by default:
+#   cmake --build build --target opponent_selftest && build/opponent_selftest
+add_executable(opponent_selftest EXCLUDE_FROM_ALL ${CMAKE_SOURCE_DIR}/tests/opponent_selftest.cpp ${SELFTEST_SOURCES})
+loserfish_setup(opponent_selftest)
